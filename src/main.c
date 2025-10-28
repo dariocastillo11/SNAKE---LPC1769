@@ -30,11 +30,11 @@ int main(void) {
     cfgI2c();        // Inicializa el periférico I2C
     lcd_init();      // Inicializa el LCD
 
-    lcd_clear();     // Limpia la pantalla
-    lcd_goto(0, 0); lcd_puts("  dariioI");
-    lcd_goto(1, 0); lcd_puts("  Addr: 0x27     ");
-    lcd_goto(2, 0); lcd_puts("LPC1769 Test   ");
-    lcd_goto(3, 0); lcd_puts("POR");
+    lcd_borrarPantalla();     // Limpia la pantalla
+    lcd_setCursor(0, 0); lcd_escribir("  dariioI");
+    lcd_setCursor(1, 0); lcd_escribir("  Addr: 0x27     ");
+    lcd_setCursor(2, 0); lcd_escribir("LPC1769 Test   ");
+    lcd_setCursor(3, 0); lcd_escribir("POR");
 
     while (1) {
         // Aquí podría ir la lógica principal del programa
