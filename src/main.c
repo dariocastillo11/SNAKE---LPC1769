@@ -37,7 +37,7 @@ int main(void) {
     lcd_setCursor(3, 0); lcd_escribir("POR");
 
     while (1) {
-        // Aquí podría ir la lógica principal del programa
+        
     }
 }
 
