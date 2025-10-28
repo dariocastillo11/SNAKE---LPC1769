@@ -145,4 +145,3 @@ Estas estructuras se utilizan para configurar y controlar las transferencias I2C
 | `GeneralCallState`  | Habilita o deshabilita la función "General Call" (aceptar mensajes a todos los esclavos).     |
 | `SlaveAddrMaskValue`| Máscara de bits para comparar la dirección recibida con la propia (permite ignorar ciertos bits). |
 
----# SNAKE---LPC1769
