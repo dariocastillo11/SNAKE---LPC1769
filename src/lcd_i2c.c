@@ -13,6 +13,8 @@
 
 // Dirección I2C del LCD y definición de bits de control
 #define LCD_DIRECCION        0x27
+#define LONG_COLUMNA_LCD         20      //  LCD de 20 columnas
+#define LONG_FILA_LCD       4       //  LCD de 4 filas
 #define LCD_LUZ_FONDO       0x08    // Bit para luz de fondo
 #define LCD_ENABLE      0x04    // Bit para pulso de habilitación
 #define MODO_COMANDO    0x00
@@ -26,13 +28,13 @@ static uint8_t i2c_buffer[1];
  */
 static void i2c_enviarByte(uint8_t dato) {
     I2C_M_SETUP_Type cfgMaestro;
-    cfgMaestro.sl_addr7bit = LCD_DIRECCION;
-    cfgMaestro.tx_data = i2c_buffer;
-    cfgMaestro.tx_length = 1;
-    cfgMaestro.rx_data = NULL;
-    cfgMaestro.rx_length = 0;
-    cfgMaestro.retransmissions_max = 3;
-    i2c_buffer[0] = dato;
+    cfgMaestro.sl_addr7bit = LCD_DIRECCION;//DIRECCION DEL ESCLAVO
+    cfgMaestro.tx_data = i2c_buffer;//PUNTERO DE LOS DATOS A TRANSMITIR
+    cfgMaestro.tx_length = 1;//LONGITUD DE LOS DATOS A TRANSMITIR 
+    cfgMaestro.rx_data = NULL;//punteros de los datos a recibir. como no reibo es null
+    cfgMaestro.rx_length = 0;//longitud de datos recibidos. es 0 porque no se usa
+    cfgMaestro.retransmissions_max = 3;//nro maximo de reintentos retransmisiones
+    i2c_buffer[0] = dato;//cargo en el buffer el dato na enviar
     I2C_MasterTransferData(LPC_I2C1, &cfgMaestro, I2C_TRANSFER_POLLING);
 }
 
@@ -52,6 +54,7 @@ static void lcd_pulso(uint8_t dato) {
  */
 static void lcd_enviarByte(uint8_t dato, uint8_t modo) {
     uint8_t alto = (dato & 0xF0) | modo | LCD_LUZ_FONDO;         // Nibble alto
+    //0xf0
     uint8_t bajo  = ((dato << 4) & 0xF0) | modo | LCD_LUZ_FONDO;  // Nibble bajo
     i2c_enviarByte(alto);
     lcd_pulso(alto);
@@ -98,7 +101,9 @@ void lcd_setCursor(uint8_t fila, uint8_t columna) {
  * @param string Cadena a mostrar
  */
 void lcd_escribir(const char *string) {
-    while (*string) lcd_enviarByte(*string++, MODO_DATOS);
+    while (*string){
+        lcd_enviarByte(*string++, MODO_DATOS);
+    }
 }
 
 /**
@@ -115,7 +120,9 @@ void lcd_borrarPantalla(void) {
  */
 void lcd_borrarFila(uint8_t fila) {
     lcd_setCursor(fila, 0);
-    for (uint8_t i = 0; i < 20; i++) lcd_enviarByte(' ', MODO_DATOS);
+    for (uint8_t i = 0; i < LONG_COLUMNA_LCD; i++){
+        lcd_enviarByte(' ', MODO_DATOS);
+    }
     lcd_setCursor(fila, 0);
 }
 
@@ -131,6 +138,7 @@ void lcd_borrarCaracter(void) {
  */
 void lcd_desplazarIzquierda(void) {
     lcd_enviarByte(0x18, MODO_COMANDO);
+    //0X18 COMANDO PARA DESPLAZAR A LA IZQUIERDA
 }
 
 /**
