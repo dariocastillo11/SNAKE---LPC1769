@@ -153,3 +153,22 @@ void lcd_parpadearCursor(void) {
 void lcd_parpadearCursorOff(void) {
     lcd_enviarByte(0x0C, MODO_COMANDO);
 }
+
+/**
+ * @brief Crea un carácter personalizado en CGRAM (índice 0..7)
+ */
+void lcd_createChar(uint8_t index, const uint8_t pattern[8]) {
+    if (index > 7) return;
+    /* Establecer dirección CGRAM: 0x40 + index*8 */
+    lcd_enviarByte(0x40 | (index << 3), MODO_COMANDO);
+    for (int i = 0; i < 8; i++) {
+        lcd_enviarByte(pattern[i] & 0x1F, MODO_DATOS);
+    }
+}
+
+/**
+ * @brief Escribe un byte de datos (carácter) en la posición actual.
+ */
+void lcd_writeDataByte(uint8_t ch) {
+    lcd_enviarByte(ch, MODO_DATOS);
+}

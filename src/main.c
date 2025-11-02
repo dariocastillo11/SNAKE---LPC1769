@@ -10,103 +10,136 @@
 #include "lpc17xx_i2c.h"
 #include "lpc17xx_pinsel.h"
 #include "lcd_i2c.h"
+#include "dino_game.h"
+#include "lpc17xx_uart.h"
+#include "lpc17xx_timer.h"
+#define DIRECCION_LCD 0x27
 
-#define PIN_BOTON 18 // P0.18
-#define LCD_FILA_SUELO 3
-#define LCD_FILA_AIRE 2
-#define LCD_COL_DINO 2
-#define LCD_COL_OBSTACULO 15
-
+/**
+ * @brief Configura los pines necesarios para la comunicación I2C1.
+ * Utiliza P0.0 (SDA1) y P0.1 (SCL1) en modo función 3.
+ */
 void cfgPin(void);
+void cfgtimer(void);
+void cfguart(void);
+/**
+ * @brief Inicializa el periférico I2C1 a 100kHz.
+ */
 void cfgI2c(void);
-void delay_ms(uint32_t ms);
 
 int main(void) {
-    SystemInit();
-    cfgPin();
-    cfgI2c();
-    lcd_init();
+    SystemInit();    // Inicializa el sistema y los relojes
+    cfgPin();        // Configura los pines para I2C
+    cfgI2c();        // Inicializa el periférico I2C
+    cfgtimer();      // Timer0 para UART (será deshabilitado por dino_game_init)
+    cfguart();
+    lcd_init();      // Inicializa el LCD
 
-    lcd_borrarPantalla();
-    lcd_setCursor(0, 0); lcd_escribir("DINO LCD - Salta!");
+    lcd_borrarPantalla();     // Limpia la pantalla
 
-    uint8_t dino_fila = LCD_FILA_SUELO;
-    uint8_t obstaculo_col = LCD_COL_OBSTACULO;
-    uint8_t saltando = 0;
-    uint32_t tick = 0;
+    /* Arrancar el juego inmediatamente: no escribimos textos estáticos para evitar
+        que sobrescriban la pantalla del juego en el arranque. */
+    dino_game_init();  // Esto deshabilitará TIMER0_IRQn internamente
 
     while (1) {
-        // Leer botón (P0.18)
-        if (LPC_GPIO0->FIOPIN & (1 << PIN_BOTON)) {
-            if (!saltando && dino_fila == LCD_FILA_SUELO) {
-                saltando = 1;
-                dino_fila = LCD_FILA_AIRE;
-            }
-        }
-
-        // Borrar dinosaurio y obstáculo anteriores
-        lcd_borrarFila(LCD_FILA_SUELO);
-        lcd_borrarFila(LCD_FILA_AIRE);
-
-        // Dibujar dinosaurio
-        lcd_setCursor(dino_fila, LCD_COL_DINO);
-        lcd_escribir("D"); // El dinosaurio
-
-        // Dibujar obstáculo
-        lcd_setCursor(LCD_FILA_SUELO, obstaculo_col);
-        lcd_escribir("|"); // El cactus
-
-        // Colisión
-        if (obstaculo_col == LCD_COL_DINO && dino_fila == LCD_FILA_SUELO) {
-            lcd_borrarPantalla();
-            lcd_setCursor(1, 5);
-            lcd_escribir("GAME OVER!");
-            while (1); // Fin del juego
-        }
-
-        // Mover obstáculo
-        if (tick % 2 == 0) { // Más lento
-            if (obstaculo_col > 0)
-                obstaculo_col--;
-            else
-                obstaculo_col = LCD_COL_OBSTACULO;
-        }
-
-        // Control de salto
-        if (saltando) {
-            delay_ms(400); // Tiempo en el aire
-            dino_fila = LCD_FILA_SUELO;
-            saltando = 0;
-        }
-
-        delay_ms(120);
-        tick++;
+        /* Ejecutar lógica del juego en el bucle principal. No bloquea. */
+        dino_game_run();
     }
 }
 
-// Configura P0.18 como entrada para el botón
+/**
+ * @brief Configura los pines P0.0 y P0.1 para I2C1.
+ */
 void cfgPin(void) {
+    // Configuración de pines para I2C1
     PINSEL_CFG_Type PinCfg;
-    PinCfg.portNum = 0;
-    PinCfg.pinNum = 18;
-    PinCfg.funcNum = 0; // GPIO
     PinCfg.openDrain = 0;
-    PinCfg.pinMode = 0; // Pull-up
+    PinCfg.pinMode = 0;
+
+    PinCfg.portNum = 0;
+    PinCfg.pinNum = 0; // SDA1
+    PinCfg.funcNum = 3;
     PINSEL_ConfigPin(&PinCfg);
 
-    LPC_GPIO0->FIODIR &= ~(1 << PIN_BOTON); // Entrada
+    PinCfg.pinNum = 1; // SCL1
+    PINSEL_ConfigPin(&PinCfg);
+
+     //pin transmisor usart. p0.2
+    PINSEL_CFG_Type pin_configuration;
+    pin_configuration.portNum   = PINSEL_PORT_0;
+    pin_configuration.pinNum    = PINSEL_PIN_2;
+    pin_configuration.pinMode   = PINSEL_TRISTATE;
+    pin_configuration.funcNum   = PINSEL_FUNC_1;  // USART0
+    pin_configuration.openDrain = PINSEL_OD_NORMAL;
+    PINSEL_ConfigPin(&pin_configuration);
+}
+void cfgtimer(void){
+	TIM_TIMERCFG_Type timer_config;
+	TIM_MATCHCFG_Type match_config;
+
+    timer_config.prescaleOption = TIM_USVAL;
+    timer_config.prescaleValue = 1000; //1ms
+
+    TIM_Init(LPC_TIM0, TIM_TIMER_MODE, &timer_config);
+
+    //Configuracion del match
+    match_config.matchChannel = TIM_MATCH_0;
+    match_config.intOnMatch = ENABLE;
+    match_config.resetOnMatch = ENABLE;
+    match_config.stopOnMatch = DISABLE;
+    match_config.extMatchOutputType = TIM_NOTHING;
+    match_config.matchValue = 1000; // 1s quiero transmitir
+
+    TIM_ConfigMatch(LPC_TIM0, &match_config);
+
+    //Habilitar interrupcion?
+    NVIC_EnableIRQ(TIMER0_IRQn);
+
+    //Iniciar timer
+    TIM_Cmd(LPC_TIM0, ENABLE);
 }
 
-// Inicializa I2C1 y el LCD
+void cfguart(void){
+    UART_CFG_Type uart_config;
+
+    uart_config.Baud_rate = 9600;
+    uart_config.Databits = UART_DATABIT_8;
+    uart_config.Parity = UART_PARITY_NONE;//sin paridad
+    uart_config.Stopbits = UART_STOPBIT_1;//1 bit de stop
+    UART_Init((LPC_UART_TypeDef *)LPC_UART0, &uart_config);
+//CARGO ESTRUCTURA
+
+    UART_FIFO_CFG_Type fifo_config;
+
+    fifo_config.FIFO_DMAMode = DISABLE;
+    fifo_config.FIFO_Level = UART_FIFO_TRGLEV1;//4 caracteres
+    fifo_config.FIFO_ResetRxBuf = ENABLE;//no lo uso
+    fifo_config.FIFO_ResetTxBuf = ENABLE;
+    UART_FIFOConfig((LPC_UART_TypeDef *)LPC_UART0, &fifo_config);
+//CARGO ESTRUCTURA
+
+
+
+    //Habilitar transmisor
+    UART_TxCmd((LPC_UART_TypeDef *)LPC_UART0, ENABLE);
+
+
+}
+/**
+ * @brief Inicializa el periférico I2C1 a 100kHz y lo habilita.
+ */
 void cfgI2c(void) {
     LPC_I2C_TypeDef* I2CDEV = LPC_I2C1;
     I2C_Init(I2CDEV, 100000);
     I2C_Cmd(I2CDEV, ENABLE);
 }
 
-// Retardo simple en ms (bloqueante)
-void delay_ms(uint32_t ms) {
-    for (uint32_t i = 0; i < ms * 8000; i++) {
-        __NOP();
+void TIMER0_IRQHandler(void){
+    static const char mensaje[] = "Snake";
+    if (TIM_GetIntStatus(LPC_TIM0, TIM_MR0_INT)){
+        UART_Send((LPC_UART_TypeDef *)LPC_UART0, (uint8_t *)mensaje, sizeof(mensaje) - 1, BLOCKING);
+        TIM_ClearIntPending(LPC_TIM0, TIM_MR0_INT);
+        lcd_desplazarIzquierda();
     }
 }
+

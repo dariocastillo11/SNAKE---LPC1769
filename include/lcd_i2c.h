@@ -62,4 +62,13 @@ void lcd_parpadearCursor(void);
  */
 void lcd_parpadearCursorOff(void);
 
+/** Crea un carácter personalizado en la CGRAM del LCD.
+ *  index: 0..7
+ *  pattern: arreglo de 8 bytes con los 5 bits inferiores usados por fila.
+ */
+void lcd_createChar(uint8_t index, const uint8_t pattern[8]);
+
+/** Escribe un único byte de datos (carácter) en la posición actual del cursor. */
+void lcd_writeDataByte(uint8_t ch);
+
 #endif // LCD_I2C_H
