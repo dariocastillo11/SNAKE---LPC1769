@@ -199,35 +199,24 @@ uint32_t obtener_tiempo_ms(void);  // Obtener tiempo global
 /* ===================== MANEJADOR DE INTERRUPCIONES ======================= */
 
 /**
- * @brief Manejador de interrupción del Timer0
- * 
- * Este handler maneja DOS interrupciones diferentes del mismo timer:
+ * @brief Manejador de interrupción del Timer0 - GENERACIÓN DE AUDIO
  * 
  * Match 0 (Generación de audio):
  *   - Interrumpe a velocidad variable (según la nota musical)
  *   - Lee un valor de TABLA_TRIANGULAR[] y lo envía al DAC
  *   - Avanza al siguiente punto de la tabla
  *   - Genera la forma de onda triangular
- * 
- * Match 1 (Base de tiempo):
- *   - Interrumpe cada 1 milisegundo (fijo)
- *   - Incrementa contador de tiempo global
- *   - Sirve para medir duraciones de notas
- *   - Útil para el timing del juego
+ *   - El contador SE RESETEA automáticamente en cada match (más estable)
  * 
  * Ejemplo: Para tocar DO_4 (262Hz):
- *   Match 0: interrumpe cada ~60μs (genera onda)
- *   Match 1: interrumpe cada 1ms (mide duración)
+ *   - Match 0 interrumpe cada ~60μs (genera onda)
  */
 void TIMER0_IRQHandler(void){
-    /* ─────────────────────────────────────────────────────────────────────
-     * Match 0: GENERACIÓN DE FORMA DE ONDA (velocidad variable)
-     * ───────────────────────────────────────────────────────────────────── */
     if(TIM_GetIntStatus(LPC_TIM0, TIM_MR0_INT)) {
         TIM_ClearIntPending(LPC_TIM0, TIM_MR0_INT);
 
         // Solo genera onda si hay una nota activa
-        if (reproduciendo) {
+        if (reproduciendo && frecuencia_actual > 0) {
             // 1. Leer el valor actual de la tabla de onda triangular
             uint16_t valor_dac = TABLA_TRIANGULAR[INDICE_TABLA_DE_ONDA];
             
@@ -241,15 +230,9 @@ void TIMER0_IRQHandler(void){
             if(INDICE_TABLA_DE_ONDA >= NUMERO_MUESTRAS) {
                 INDICE_TABLA_DE_ONDA = 0;
             }
-            
-            // 5. Programar el próximo match (contador corre libre)
-            // Calcular el período entre muestras según la frecuencia actual
-            uint32_t periodo_completo_us = MICROSEGUNDOS_POR_SEGUNDO / frecuencia_actual;
-            uint32_t tiempo_entre_muestras = periodo_completo_us / NUMERO_MUESTRAS;
-            
-            // Sumar el intervalo al match actual para obtener el próximo
-            uint32_t proximo_match = LPC_TIM0->MR0 + tiempo_entre_muestras;
-            TIM_UpdateMatchValue(LPC_TIM0, TIM_MATCH_0, proximo_match);
+        } else {
+            // Si no hay nota activa, asegurar DAC en 0
+            DAC_UpdateValue(0);
         }
 
         // Indicador visual de actividad (LED parpadea)
@@ -268,24 +251,30 @@ void TIMER0_IRQHandler(void){
         }
     }
     
-    /* ─────────────────────────────────────────────────────────────────────
-     * Match 1: CONTADOR DE TIEMPO (1ms fijo)
-     * ───────────────────────────────────────────────────────────────────── */
-    if(TIM_GetIntStatus(LPC_TIM0, TIM_MR1_INT)) {
-        TIM_ClearIntPending(LPC_TIM0, TIM_MR1_INT);
+    return;
+}
+
+/**
+ * @brief Manejador de interrupción del Timer1 - CONTADOR DE TIEMPO
+ * 
+ * Match 0 del Timer1:
+ *   - Interrumpe cada 1 milisegundo (fijo)
+ *   - Incrementa contador de tiempo global
+ *   - Sirve para medir duraciones de notas
+ *   - Útil para el timing del juego
+ *   - El contador SE RESETEA automáticamente cada 1ms
+ */
+void TIMER1_IRQHandler(void){
+    if(TIM_GetIntStatus(LPC_TIM1, TIM_MR0_INT)) {
+        TIM_ClearIntPending(LPC_TIM1, TIM_MR0_INT);
         
-        // Incrementar contador global de milisegundos (para el juego y melodías)
+        // Incrementar contador global de milisegundos
         tiempo_transcurrido_ms++;
         
-        // Decrementar contador auxiliar (compatible con versiones anteriores)
+        // Decrementar contador auxiliar
         if (nota_duracion_ms > 0) {
             nota_duracion_ms--;
         }
-        
-        // Programar el próximo match 1ms adelante (contador corre libre)
-        #define MICROSEGUNDOS_POR_MS  1000
-        uint32_t proximo_match = LPC_TIM0->MR1 + MICROSEGUNDOS_POR_MS;
-        TIM_UpdateMatchValue(LPC_TIM0, TIM_MATCH_1, proximo_match);
     }
     
     return;
@@ -340,25 +329,24 @@ uint8_t esta_reproduciendo(void) {
 /**
  * @brief Configura la frecuencia de reproducción para una nota musical
  * 
+ * VERSIÓN SIMPLIFICADA CON RESET EN MATCH
+ * 
  * Esta función calcula la velocidad a la que Match 0 debe interrumpir para
- * generar la frecuencia deseada. NO genera la onda directamente, solo configura
- * qué tan rápido el TIMER0_IRQHandler debe leer la TABLA_TRIANGULAR.
+ * generar la frecuencia deseada. Como el contador se RESETEA en cada match,
+ * el cálculo es directo y estable.
  * 
  * Proceso:
  * 1. Calcula el período de UN ciclo completo de la nota (en microsegundos)
  * 2. Divide ese período entre 64 muestras
- * 3. Configura Match 0 para interrumpir en ese intervalo
- * 4. El handler lee la tabla y genera la onda
+ * 3. Configura Match 0 con ese valor
+ * 4. El timer se resetea automáticamente, generando interrupciones estables
  * 
  * Ejemplo para DO_4 (262 Hz):
  *   - Período = 1,000,000 / 262 = 3,816 μs (un ciclo completo)
  *   - Match 0 = 3,816 / 64 = 60 μs (tiempo entre muestras)
- *   - Resultado: 64 muestras × 60μs = 3,840μs ≈ 262 Hz ✓
+ *   - Timer cuenta: 0→60 (reset) 0→60 (reset) ... muy estable
  * 
  * @param frecuencia_hz Frecuencia deseada en Hertz (0 = silencio)
- * 
- * @note El Timer0 SIEMPRE está corriendo, solo cambia el flag 'reproduciendo'
- *       para activar/desactivar la escritura al DAC
  */
 void set_frecuencia(uint16_t frecuencia_hz) {
     // Caso especial: Silencio
@@ -370,36 +358,48 @@ void set_frecuencia(uint16_t frecuencia_hz) {
         return;
     }
     
+    // Validar rango de frecuencias
+    if (frecuencia_hz < 50 || frecuencia_hz > 5000) {
+        return;  // Frecuencia fuera de rango
+    }
+    
     /* ─────────────────────────────────────────────────────────────────────
-     * CÁLCULO DE PERÍODO DE MUESTREO
+     * CÁLCULO DE PERÍODO DE MUESTREO (SIMPLIFICADO)
      * ───────────────────────────────────────────────────────────────────── */
     
     // 1. Período de UN CICLO completo de la nota (en microsegundos)
-    //    Período = 1 / Frecuencia
-    //    En μs:   (1,000,000 μs/s) / Frecuencia(Hz)
     uint32_t periodo_completo_us = MICROSEGUNDOS_POR_SEGUNDO / frecuencia_hz;
     
     // 2. Tiempo entre cada muestra de la tabla
-    //    Dividimos el período completo entre las 64 muestras
     uint32_t tiempo_entre_muestras_us = periodo_completo_us / NUMERO_MUESTRAS;
     
+    // Validar que el tiempo no sea demasiado pequeño
+    if (tiempo_entre_muestras_us < 10) {
+        tiempo_entre_muestras_us = 10;  // Mínimo 10μs
+    }
+    
     /* ─────────────────────────────────────────────────────────────────────
-     * CONFIGURACIÓN DEL TIMER
+     * CONFIGURACIÓN DEL TIMER (MODO RESET)
      * ───────────────────────────────────────────────────────────────────── */
     
-    // IMPORTANTE: Como el contador corre libre (no se resetea), debemos
-    // configurar el próximo match sumando el intervalo al valor actual del timer
-    uint32_t contador_actual = LPC_TIM0->TC;
-    uint32_t proximo_match = contador_actual + tiempo_entre_muestras_us;
+    // Detener temporalmente el timer para configuración segura
+    TIM_Cmd(LPC_TIM0, DISABLE);
     
-    TIM_UpdateMatchValue(LPC_TIM0, TIM_MATCH_0, proximo_match);
+    // Resetear el contador a 0
+    TIM_ResetCounter(LPC_TIM0);
     
-    // Reiniciar índice de la tabla (empezar desde el principio)
+    // Configurar el valor de match (el timer se reseteará al llegar aquí)
+    TIM_UpdateMatchValue(LPC_TIM0, TIM_MATCH_0, tiempo_entre_muestras_us);
+    
+    // Reiniciar índice de la tabla
     INDICE_TABLA_DE_ONDA = 0;
     
-    // Guardar frecuencia actual y activar reproducción
+    // Guardar frecuencia y activar reproducción
     frecuencia_actual = frecuencia_hz;
     reproduciendo = 1;
+    
+    // Reiniciar el timer
+    TIM_Cmd(LPC_TIM0, ENABLE);
 }
 
 /**
@@ -726,98 +726,76 @@ void config_DAC(void) {
 /**
  * @brief Configura el Timer0 para generación de audio y base de tiempo
  * 
- * Este timer maneja DOS tareas simultáneas usando dos Match Registers con
- * un CONTADOR DE CORRIDA LIBRE (free-running counter).
+ * SOLUCIÓN SIMPLIFICADA - Usar Timer0 solo para audio y Timer1 para tiempo
  * 
- * Match 0 (AUDIO):
+ * Timer0 - Match 0 (AUDIO con RESET):
  *   - Genera interrupciones a velocidad VARIABLE (según la nota)
+ *   - RESETEA el contador en cada match (más estable)
  *   - Cada interrupción actualiza un punto de la onda triangular
  *   - Se reconfigura dinámicamente con set_frecuencia()
- *   - NO resetea el contador - usa modo incremental
- *   - Cada IRQ programa el próximo match: MR0 = MR0_anterior + intervalo
- * 
- * Match 1 (TIEMPO):
- *   - Genera interrupciones FIJAS cada 1 milisegundo
- *   - Incrementa contador de tiempo global
- *   - NO resetea el contador - contador corre libre
- *   - Cada IRQ programa el próximo match: MR1 = MR1_anterior + 1000μs
- *   - Sirve para medir duraciones y timing del juego
  * 
  * Prescaler:
  *   - Configurado a 1 microsegundo por tick
  *   - Permite timing preciso para frecuencias de audio
- * 
- * IMPORTANTE - Modo Free-Running:
- *   Ambos matches NO resetean el contador. En su lugar, cada interrupción
- *   calcula el próximo valor de match sumando el intervalo al match actual.
- *   Esto permite que ambos matches coexistan sin interferencia.
- * 
- * Ejemplo de funcionamiento con contador libre:
- *   t=0μs     → TC=0, MR0=60, MR1=1000
- *   t=60μs    → IRQ Match 0 → lee muestra 0, MR0 = 60+60 = 120
- *   t=120μs   → IRQ Match 0 → lee muestra 1, MR0 = 120+60 = 180
- *   t=180μs   → IRQ Match 0 → lee muestra 2, MR0 = 180+60 = 240
- *   ...
- *   t=1000μs  → IRQ Match 1 → tiempo_ms++, MR1 = 1000+1000 = 2000
- *   ...
- *   t=2000μs  → IRQ Match 1 → tiempo_ms++, MR1 = 2000+1000 = 3000
  */
 void config_timer(){
     TIM_TIMERCFG_Type cfgtimer;
     TIM_MATCHCFG_Type cfgmatch;
 
     /* ═════════════════════════════════════════════════════════════════════
-     * CONFIGURACIÓN BÁSICA DEL TIMER
+     * CONFIGURACIÓN BÁSICA DEL TIMER0
      * ═════════════════════════════════════════════════════════════════════ */
     
     // Prescaler: 1 tick = 1 microsegundo
-    // Esto permite timing preciso para frecuencias de audio
     cfgtimer.prescaleOption = TIM_USVAL;  // Unidad: microsegundos
     cfgtimer.prescaleValue  = 1;          // 1 microsegundo por tick
 
     TIM_Init(LPC_TIM0, TIM_TIMER_MODE, &cfgtimer);
 
     /* ═════════════════════════════════════════════════════════════════════
-     * MATCH 0: GENERACIÓN DE AUDIO (velocidad variable)
+     * MATCH 0: GENERACIÓN DE AUDIO CON RESET
      * ═════════════════════════════════════════════════════════════════════ */
     
     cfgmatch.matchChannel        = 0;
     cfgmatch.intOnMatch          = ENABLE;     // Generar interrupción
-    cfgmatch.resetOnMatch        = DISABLE;    // NO resetear - el contador corre libre
+    cfgmatch.resetOnMatch        = ENABLE;     // SÍ RESETEAR - más estable
     cfgmatch.stopOnMatch         = DISABLE;    // NO detener timer
     cfgmatch.extMatchOutputType  = TIM_NOTHING;// Sin salida externa
-    cfgmatch.matchValue          = 1000;       // Valor inicial (se actualiza después)
-
+    cfgmatch.matchValue          = 100;        // Valor inicial conservador
+    
     TIM_ConfigMatch(LPC_TIM0, &cfgmatch);
     
     /* ═════════════════════════════════════════════════════════════════════
-     * MATCH 1: CONTADOR DE TIEMPO (1ms fijo)
+     * CONFIGURAR TIMER1 PARA CONTADOR DE TIEMPO (1ms)
      * ═════════════════════════════════════════════════════════════════════ */
     
-    #define MICROSEGUNDOS_POR_MILISEGUNDO  1000
+    // Timer1 independiente para la base de tiempo
+    cfgtimer.prescaleOption = TIM_USVAL;
+    cfgtimer.prescaleValue  = 1;
+    TIM_Init(LPC_TIM1, TIM_TIMER_MODE, &cfgtimer);
     
-    cfgmatch.matchChannel        = 1;
-    cfgmatch.intOnMatch          = ENABLE;     // Generar interrupción
-    cfgmatch.resetOnMatch        = DISABLE;    // NO resetear - contador libre
-    cfgmatch.stopOnMatch         = DISABLE;    // NO detener timer
-    cfgmatch.extMatchOutputType  = TIM_NOTHING;// Sin salida externa
-    cfgmatch.matchValue          = MICROSEGUNDOS_POR_MILISEGUNDO;  // Primera interrupción a 1ms
+    cfgmatch.matchChannel        = 0;
+    cfgmatch.intOnMatch          = ENABLE;
+    cfgmatch.resetOnMatch        = ENABLE;     // Reset en cada ms
+    cfgmatch.stopOnMatch         = DISABLE;
+    cfgmatch.extMatchOutputType  = TIM_NOTHING;
+    cfgmatch.matchValue          = 1000;       // 1000μs = 1ms
     
-    TIM_ConfigMatch(LPC_TIM0, &cfgmatch);
+    TIM_ConfigMatch(LPC_TIM1, &cfgmatch);
 
     /* ═════════════════════════════════════════════════════════════════════
-     * HABILITAR INTERRUPCIONES Y ARRANCAR TIMER
+     * HABILITAR INTERRUPCIONES Y ARRANCAR TIMERS
      * ═════════════════════════════════════════════════════════════════════ */
     
-    // Habilitar interrupciones del Timer0 en el NVIC
+    // Timer0 - Audio
     NVIC_EnableIRQ(TIMER0_IRQn);
-    
-    // Prioridad 1 (alta, pero no máxima)
     NVIC_SetPriority(TIMER0_IRQn, 1);
-    
-    // IMPORTANTE: Iniciar el timer (queda corriendo SIEMPRE)
-    // El audio se controla con el flag 'reproduciendo', no deteniendo el timer
     TIM_Cmd(LPC_TIM0, ENABLE);
+    
+    // Timer1 - Tiempo
+    NVIC_EnableIRQ(TIMER1_IRQn);
+    NVIC_SetPriority(TIMER1_IRQn, 2);  // Menor prioridad que audio
+    TIM_Cmd(LPC_TIM1, ENABLE);
 
     return;
 }
