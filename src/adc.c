@@ -69,8 +69,10 @@ static GPDMA_LLI_Type lli_y;
 static uint16_t promedio_x = 2048;
 static uint16_t promedio_y = 2048;
 
-// Flag de actualización
+// Flags de actualización
 static volatile uint8_t datos_listos = 0;
+static volatile uint8_t canal_x_listo = 0;
+static volatile uint8_t canal_y_listo = 0;
 
 /* ===================== DECLARACIONES DE FUNCIONES ========================= */
 
@@ -89,17 +91,28 @@ uint16_t calcular_promedio(volatile uint16_t* buffer);
  * 
  * Canal DMA 0 → Lee ADDR0 (VRx Canal 0 en P0.23) → buffer_x
  * Canal DMA 1 → Lee ADDR1 (VRy Canal 1 en P0.24) → buffer_y
+ * 
+ * SINCRONIZACIÓN: Solo setea datos_listos cuando AMBOS canales terminaron
+ * para evitar leer buffers desincronizados
  */
 void DMA_IRQHandler(void) {
     // Canal DMA 0 (eje X horizontal) completó transferencia
     if (GPDMA_IntGetStatus(GPDMA_RAW_INTTC, 0)) {
         GPDMA_ClearIntPending(GPDMA_CLR_INTTC, 0);
+        canal_x_listo = 1;
     }
     
     // Canal DMA 1 (eje Y vertical) completó transferencia
     if (GPDMA_IntGetStatus(GPDMA_RAW_INTTC, 1)) {
         GPDMA_ClearIntPending(GPDMA_CLR_INTTC, 1);
-        datos_listos = 1;  // Ambos canales listos
+        canal_y_listo = 1;
+    }
+    
+    // Solo procesar cuando AMBOS canales terminaron (sincronizados)
+    if (canal_x_listo && canal_y_listo) {
+        datos_listos = 1;
+        canal_x_listo = 0;
+        canal_y_listo = 0;
     }
     
     // Limpiar errores si existen
