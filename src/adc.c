@@ -6,12 +6,12 @@
  *          Calcula promedios y controla 4 LEDs según dirección
  * 
  * Hardware:
- * - P0.23: ADC0.0 (Eje Y del joystick - VRy)
- * - P0.24: ADC0.1 (Eje X del joystick - VRx)
- * - P0.0: LED Izquierda  (horizontal)
- * - P0.1: LED Derecha    (horizontal)
- * - P0.2: LED Arriba     (vertical)
- * - P0.3: LED Abajo      (vertical)
+ * - P0.23: ADC Canal 0 → Lee VRx (eje horizontal) → Controla HORIZONTAL (Izq/Der)
+ * - P0.24: ADC Canal 1 → Lee VRy (eje vertical) → Controla VERTICAL (Arr/Abajo)
+ * - P0.0: LED Izquierda  (se enciende cuando VRx bajo)
+ * - P0.1: LED Derecha    (se enciende cuando VRx alto)
+ * - P0.2: LED Arriba     (se enciende cuando VRy alto)
+ * - P0.3: LED Abajo      (se enciende cuando VRy bajo)
  * 
  * @date    Noviembre 2025
  */
@@ -24,13 +24,13 @@
 
 /* ========================== CONFIGURACIÓN ================================= */
 
-// Canales ADC - CABLES INVERTIDOS: VRy en P0.23, VRx en P0.24
-#define ADC_CHANNEL_X       1    // P0.24 - Eje X (VRx cable naranja/rojo)
-#define ADC_CHANNEL_Y       0    // P0.23 - Eje Y (VRy cable amarillo/verde)
+// Canales ADC - MAPEO JOYSTICK KY-023
+#define ADC_CHANNEL_X       0    // P0.23 - VRx (potenciómetro horizontal) → IZQUIERDA/DERECHA
+#define ADC_CHANNEL_Y       1    // P0.24 - VRy (potenciómetro vertical) → ARRIBA/ABAJO
 
 // PINES DEL ADC
-#define ADC_X_PIN           PINSEL_PIN_24  // P0.24 para X
-#define ADC_Y_PIN           PINSEL_PIN_23  // P0.23 para Y
+#define ADC_X_PIN           PINSEL_PIN_23  // P0.23 para VRx (eje X)
+#define ADC_Y_PIN           PINSEL_PIN_24  // P0.24 para VRy (eje Y)
 
 // Tamaño de buffers (10 muestras por canal)
 #define BUFFER_SIZE         10
@@ -86,14 +86,17 @@ uint16_t calcular_promedio(volatile uint16_t* buffer);
 /**
  * @brief Handler de interrupción del DMA
  * Se ejecuta cuando completa la transferencia de 10 muestras
+ * 
+ * Canal DMA 0 → Lee ADDR0 (VRx Canal 0 en P0.23) → buffer_x
+ * Canal DMA 1 → Lee ADDR1 (VRy Canal 1 en P0.24) → buffer_y
  */
 void DMA_IRQHandler(void) {
-    // Canal 0 (X) completó transferencia
+    // Canal DMA 0 (eje X horizontal) completó transferencia
     if (GPDMA_IntGetStatus(GPDMA_RAW_INTTC, 0)) {
         GPDMA_ClearIntPending(GPDMA_CLR_INTTC, 0);
     }
     
-    // Canal 1 (Y) completó transferencia
+    // Canal DMA 1 (eje Y vertical) completó transferencia
     if (GPDMA_IntGetStatus(GPDMA_RAW_INTTC, 1)) {
         GPDMA_ClearIntPending(GPDMA_CLR_INTTC, 1);
         datos_listos = 1;  // Ambos canales listos
@@ -152,34 +155,37 @@ void config_gpio_leds(void) {
 }
 
 /**
- * @brief Configura ADC para leer 2 canales (SIN modo burst para pruebas)
+ * @brief Configura ADC para leer 2 canales
+ * 
+ * MODOS DE OPERACIÓN:
+ * - Sin DMA: Modo manual con START_NOW (burst desactivado)
+ * - Con DMA: Modo burst automático (se activa en config_dma())
  */
 void config_adc(void) {
     // Configurar pines como ADC
     PINSEL_CFG_Type pin_cfg;
-    pin_cfg.funcNum = PINSEL_FUNC_1;  // ADC
+    pin_cfg.funcNum = PINSEL_FUNC_1;  // Función 1 = ADC
     pin_cfg.pinMode = PINSEL_TRISTATE;
     pin_cfg.openDrain = PINSEL_OD_NORMAL;
     pin_cfg.portNum = PINSEL_PORT_0;
     
-    // P0.23 -> AD0.0 (Y - VRy cable)
-    pin_cfg.pinNum = ADC_Y_PIN;
-    PINSEL_ConfigPin(&pin_cfg);
-    
-    // P0.24 -> AD0.1 (X - VRx cable)
+    // P0.23 -> Canal 0 (VRx - eje horizontal)
     pin_cfg.pinNum = ADC_X_PIN;
     PINSEL_ConfigPin(&pin_cfg);
     
-    // Inicializar ADC
+    // P0.24 -> Canal 1 (VRy - eje vertical)
+    pin_cfg.pinNum = ADC_Y_PIN;
+    PINSEL_ConfigPin(&pin_cfg);
+    
+    // Inicializar ADC a 100kHz
     ADC_Init(ADC_FREQUENCY);
     
-    // Habilitar canales 0 (Y) y 1 (X)
+    // Habilitar canales 0 (VRx) y 1 (VRy)
     ADC_ChannelCmd(ADC_CHANNEL_X, ENABLE);
     ADC_ChannelCmd(ADC_CHANNEL_Y, ENABLE);
     
-    // NO usar burst mode para modo de prueba sin DMA
-    // ADC_BurstCmd(ENABLE);
-    // ADC_StartCmd(ADC_START_CONTINUOUS);
+    // NO activar burst aquí - se hace en config_dma() si es necesario
+    // Modo sin DMA usa START_NOW manual en leer_adc_directo()
 }
 
 /**
@@ -192,10 +198,11 @@ void config_dma(void) {
     // Inicializar DMA
     GPDMA_Init();
     
-    /* ===== CANAL DMA 0 - EJE X (ADC0.0) ===== */
+    /* ===== CANAL DMA 0 - EJE X (HORIZONTAL) ===== */
+    // Lee ADC Canal 0 (ADDR0) → P0.23 VRx → Guarda en buffer_x
     
     // Configurar LLI para buffer circular (ESTÁTICA - ya declarada globalmente)
-    lli_x.srcAddr = (uint32_t)&(LPC_ADC->ADDR0);
+    lli_x.srcAddr = (uint32_t)&(LPC_ADC->ADDR0);  // Canal 0 = VRx (P0.23)
     lli_x.dstAddr = (uint32_t)buffer_x;
     lli_x.nextLLI = (uint32_t)&lli_x;  // Circular
     lli_x.control = GPDMA_DMACCxControl_TransferSize(BUFFER_SIZE)
@@ -210,7 +217,7 @@ void config_dma(void) {
     dma_cfg.channelNum = 0;
     dma_cfg.transferSize = BUFFER_SIZE;
     dma_cfg.transferWidth = GPDMA_HALFWORD;
-    dma_cfg.srcMemAddr = (uint32_t)&(LPC_ADC->ADDR0);
+    dma_cfg.srcMemAddr = (uint32_t)&(LPC_ADC->ADDR0);  // ADDR0 = Canal 0 (VRx)
     dma_cfg.dstMemAddr = (uint32_t)buffer_x;
     dma_cfg.transferType = GPDMA_P2M;
     dma_cfg.srcConn = GPDMA_ADC;
@@ -219,10 +226,11 @@ void config_dma(void) {
     
     GPDMA_Setup(&dma_cfg);
     
-    /* ===== CANAL DMA 1 - EJE Y (ADC0.1) ===== */
+    /* ===== CANAL DMA 1 - EJE Y (VERTICAL) ===== */
+    // Lee ADC Canal 1 (ADDR1) → P0.24 VRy → Guarda en buffer_y
     
     // Configurar LLI para buffer circular
-    lli_y.srcAddr = (uint32_t)&(LPC_ADC->ADDR1);
+    lli_y.srcAddr = (uint32_t)&(LPC_ADC->ADDR1);  // Canal 1 = VRy (P0.24)
     lli_y.dstAddr = (uint32_t)buffer_y;
     lli_y.nextLLI = (uint32_t)&lli_y;  // Circular
     lli_y.control = GPDMA_DMACCxControl_TransferSize(BUFFER_SIZE)
@@ -235,7 +243,7 @@ void config_dma(void) {
     
     // Configurar canal DMA 1
     dma_cfg.channelNum = 1;
-    dma_cfg.srcMemAddr = (uint32_t)&(LPC_ADC->ADDR1);
+    dma_cfg.srcMemAddr = (uint32_t)&(LPC_ADC->ADDR1);  // ADDR1 = Canal 1 (VRy)
     dma_cfg.dstMemAddr = (uint32_t)buffer_y;
     dma_cfg.linkedList = (uint32_t)&lli_y;
     
@@ -248,6 +256,12 @@ void config_dma(void) {
     // Activar canales DMA
     GPDMA_ChannelCmd(0, ENABLE);
     GPDMA_ChannelCmd(1, ENABLE);
+    
+    // CRÍTICO: Activar modo BURST para que el DMA funcione
+    // En modo burst, el ADC convierte automáticamente todos los canales habilitados
+    // y el DMA transfiere los datos a los buffers sin intervención del CPU
+    ADC_BurstCmd(ENABLE);
+    ADC_StartCmd(ADC_START_CONTINUOUS);
 }
 
 /**
@@ -286,15 +300,17 @@ void procesar_joystick(void) {
 
 /**
  * @brief Actualiza los LEDs según los promedios de X e Y
- * IMPORTANTE: VRy controla HORIZONTAL (P0.0, P0.1)
- *             VRx controla VERTICAL (P0.2, P0.3)
+ * 
+ * MAPEO JOYSTICK KY-023:
+ * - VRx (potenciómetro físico horizontal) → P0.23 → Canal 0 → promedio_x → HORIZONTAL (Izq/Der)
+ * - VRy (potenciómetro físico vertical) → P0.24 → Canal 1 → promedio_y → VERTICAL (Arr/Abajo)
  * 
  * Lógica:
  * - NEUTRO: Todos apagados (dentro de ±deadzone del centro)
- * - IZQUIERDA: Y < (centro_y - deadzone) → P0.0 encendido
- * - DERECHA: Y > (centro_y + deadzone) → P0.1 encendido
- * - ARRIBA: X > (centro_x + deadzone) → P0.2 encendido
- * - ABAJO: X < (centro_x - deadzone) → P0.3 encendido
+ * - IZQUIERDA: X < (centro_x - deadzone) → P0.0 encendido
+ * - DERECHA: X > (centro_x + deadzone) → P0.1 encendido
+ * - ARRIBA: Y > (centro_y + deadzone) → P0.2 encendido
+ * - ABAJO: Y < (centro_y - deadzone) → P0.3 encendido
  */
 void actualizar_leds(void) {
     // Apagar todos los LEDs primero (BAJO = apagado)
@@ -303,22 +319,22 @@ void actualizar_leds(void) {
                              (1 << LED_ARRIBA_PIN) | 
                              (1 << LED_ABAJO_PIN));
     
-    // HORIZONTAL: Controlado por VRy (canal Y en P0.23)
-    if (promedio_y < (centro_y - deadzone)) {
+    // HORIZONTAL: Controlado por VRx (Canal 0 en P0.23)
+    if (promedio_x < (centro_x - deadzone)) {
         // Joystick a la IZQUIERDA
         GPIO_SetPins(LED_PORT, (1 << LED_IZQUIERDA_PIN));
     }
-    else if (promedio_y > (centro_y + deadzone)) {
+    else if (promedio_x > (centro_x + deadzone)) {
         // Joystick a la DERECHA
         GPIO_SetPins(LED_PORT, (1 << LED_DERECHA_PIN));
     }
     
-    // VERTICAL: Controlado por VRx (canal X en P0.24)
-    if (promedio_x > (centro_x + deadzone)) {
+    // VERTICAL: Controlado por VRy (Canal 1 en P0.24)
+    if (promedio_y > (centro_y + deadzone)) {
         // Joystick ARRIBA
         GPIO_SetPins(LED_PORT, (1 << LED_ARRIBA_PIN));
     }
-    else if (promedio_x < (centro_x - deadzone)) {
+    else if (promedio_y < (centro_y - deadzone)) {
         // Joystick ABAJO
         GPIO_SetPins(LED_PORT, (1 << LED_ABAJO_PIN));
     }
@@ -330,29 +346,50 @@ void actualizar_leds(void) {
 
 /**
  * @brief Lee ADC directamente (sin DMA) para pruebas
- * IMPORTANTE: Lee todos los canales habilitados después de cada START
+ * 
+ * IMPORTANTE: El ADC con START_NOW solo convierte UN canal por trigger
+ * Solución: Habilitar solo el canal deseado, convertir, deshabilitar
+ * 
+ * @param canal Número de canal ADC (0 o 1)
+ * @return Valor ADC de 12 bits (0-4095) o 2048 si timeout
+ * 
+ * TIMEOUT: Protección contra deadlock si el ADC falla
+ * - NO es para dar tiempo al usuario
+ * - Previene cuelgues si canal mal configurado, clock deshabilitado, etc.
+ * - Con ADC a 100kHz: 1 conversión = 10µs, timeout = 1000 iter (~100µs)
  */
 uint16_t leer_adc_directo(uint8_t canal) {
-    uint32_t timeout = 100000;
+    uint32_t timeout = 1000;  // Suficiente para 100µs (10x margen de seguridad)
     uint16_t valor;
     
-    // Iniciar conversión en TODOS los canales habilitados
+    // CRÍTICO: Deshabilitar TODOS los canales primero
+    // Evita que START_NOW convierta el canal de menor número por defecto
+    ADC_ChannelCmd(ADC_CHANNEL_X, DISABLE);
+    ADC_ChannelCmd(ADC_CHANNEL_Y, DISABLE);
+    
+    // Habilitar SOLO el canal que queremos leer
+    ADC_ChannelCmd(canal, ENABLE);
+    
+    // Iniciar conversión (solo este canal se convertirá)
     ADC_StartCmd(ADC_START_NOW);
     
-    // Delay para que complete TODAS las conversiones
-    for (volatile int i = 0; i < 1000; i++);
-    
     // Esperar a que termine la conversión del canal específico
+    // Timeout previene deadlock si hay error de configuración
     while (!ADC_ChannelGetStatus(canal, ADC_DATA_DONE) && timeout > 0) {
         timeout--;
     }
     
     if (timeout == 0) {
-        return 2048;  // Valor neutro en timeout
+        // Error: ADC no respondió (posible mal configuración de hardware)
+        return 2048;  // Valor neutro (centro del rango 0-4095)
     }
     
-    // Leer valor del canal solicitado
+    // Leer valor del canal (12 bits: 0-4095)
     valor = ADC_ChannelGetData(canal);
+    
+    // Re-habilitar ambos canales para próximas lecturas
+    ADC_ChannelCmd(ADC_CHANNEL_X, ENABLE);
+    ADC_ChannelCmd(ADC_CHANNEL_Y, ENABLE);
     
     return valor;
 }
@@ -414,46 +451,31 @@ void calibrar_joystick(void) {
  * - 2 canales × 100µs = 200µs total para completar ciclo
  * - Tasa de actualización: ~5000 lecturas/segundo
  * 
- * PRIORIDAD:
- * - Ambos canales se muestrean simultáneamente con ADC_START_NOW
- * - No hay prioridad: canal 0 y canal 1 se convierten en paralelo
- * - Se espera a que AMBOS terminen antes de leer
+ * IMPORTANTE - LIMITACIÓN DEL HARDWARE:
+ * - ADC con START_NOW solo convierte EL PRIMER CANAL HABILITADO (menor número)
+ * - Si canal 0 y canal 1 están habilitados, START_NOW solo convierte canal 0
+ * - Solución: Leer canales SECUENCIALMENTE con leer_adc_directo()
+ *   que habilita/deshabilita canales individualmente
  * 
  * LÓGICA:
- * - Si promedio_y difiere de centro_y → movimiento horizontal
- * - Si promedio_x difiere de centro_x → movimiento vertical
+ * - Si promedio_x difiere de centro_x → movimiento HORIZONTAL (Izq/Der)
+ * - Si promedio_y difiere de centro_y → movimiento VERTICAL (Arr/Abajo)
  * - Movimientos pueden ser simultáneos (diagonales)
  */
 void test_sin_dma(void) {
     uint32_t suma_x = 0, suma_y = 0;
-    uint32_t timeout;
     
-    // Tomar 10 muestras de ambos canales
+    // Tomar 10 muestras de CADA canal (secuencialmente)
+    // NOTA: leer_adc_directo() ya maneja la habilitación individual de canales
     for (int i = 0; i < 10; i++) {
-        // Iniciar conversión en AMBOS canales (0 y 1) simultáneamente
-        ADC_StartCmd(ADC_START_NOW);
+        // ===== LEER CANAL Y (0) =====
+        suma_y += leer_adc_directo(ADC_CHANNEL_Y);
         
-        // Delay para permitir que completen las conversiones (~20µs)
-        for (volatile int j = 0; j < 1000; j++);
+        // ===== LEER CANAL X (1) =====
+        suma_x += leer_adc_directo(ADC_CHANNEL_X);
         
-        // Esperar a que canal Y (0) termine
-        timeout = 100000;
-        while (!ADC_ChannelGetStatus(ADC_CHANNEL_Y, ADC_DATA_DONE) && timeout > 0) {
-            timeout--;
-        }
-        
-        // Esperar a que canal X (1) termine
-        timeout = 100000;
-        while (!ADC_ChannelGetStatus(ADC_CHANNEL_X, ADC_DATA_DONE) && timeout > 0) {
-            timeout--;
-        }
-        
-        // Leer y acumular valores de AMBOS canales
-        suma_y += ADC_ChannelGetData(ADC_CHANNEL_Y);
-        suma_x += ADC_ChannelGetData(ADC_CHANNEL_X);
-        
-        // Pequeño delay entre muestras (~10µs)
-        for (volatile int j = 0; j < 1000; j++);
+        // Pequeño delay entre ciclos de muestreo (~10µs)
+        for (volatile int j = 0; j < 100; j++);
     }
     
     // Calcular promedios (filtro digital simple)
@@ -467,20 +489,20 @@ void test_sin_dma(void) {
     // Se evalúan AMBOS ejes independientemente
     // Si el joystick se mueve en diagonal, pueden encenderse 2 LEDs
     
-    // HORIZONTAL: Controlado por VRy (canal Y en P0.23)
-    if (promedio_y < (centro_y - deadzone)) {
-        GPIO_SetPins(LED_PORT, (1 << 0));  // P0.0 IZQUIERDA
-    }
-    else if (promedio_y > (centro_y + deadzone)) {
-        GPIO_SetPins(LED_PORT, (1 << 1));  // P0.1 DERECHA
-    }
-    
-    // VERTICAL: Controlado por VRx (canal X en P0.24)
+    // HORIZONTAL: Controlado por VRx (Canal 0 en P0.23)
     if (promedio_x < (centro_x - deadzone)) {
-        GPIO_SetPins(LED_PORT, (1 << 2));  // P0.2 ARRIBA
+        GPIO_SetPins(LED_PORT, (1 << LED_IZQUIERDA_PIN));  // P0.0 IZQUIERDA
     }
     else if (promedio_x > (centro_x + deadzone)) {
-        GPIO_SetPins(LED_PORT, (1 << 3));  // P0.3 ABAJO
+        GPIO_SetPins(LED_PORT, (1 << LED_DERECHA_PIN));  // P0.1 DERECHA
+    }
+    
+    // VERTICAL: Controlado por VRy (Canal 1 en P0.24)
+    if (promedio_y < (centro_y - deadzone)) {
+        GPIO_SetPins(LED_PORT, (1 << LED_ABAJO_PIN));  // P0.3 ABAJO
+    }
+    else if (promedio_y > (centro_y + deadzone)) {
+        GPIO_SetPins(LED_PORT, (1 << LED_ARRIBA_PIN));  // P0.2 ARRIBA
     }
     
     // Si ambos promedios están dentro de ±deadzone = NEUTRO (todos apagados)
