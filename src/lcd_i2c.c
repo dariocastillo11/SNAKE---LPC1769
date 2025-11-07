@@ -33,7 +33,7 @@ static void i2c_enviarByte(uint8_t dato) {
     cfgMaestro.rx_length = 0;
     cfgMaestro.retransmissions_max = 3;
     i2c_buffer[0] = dato;
-    I2C_MasterTransferData(LPC_I2C1, &cfgMaestro, I2C_TRANSFER_POLLING);
+    I2C_MasterTransferData(LPC_I2C0, &cfgMaestro, I2C_TRANSFER_POLLING);
 }
 
 /**

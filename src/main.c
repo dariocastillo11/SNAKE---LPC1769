@@ -126,10 +126,29 @@ void cfguart(void){
 
 }
 /**
- * @brief Inicializa el periférico I2C1 a 100kHz y lo habilita.
+ * @brief Inicializa el periférico I2C0 a 100kHz y lo habilita.
+ * Configuración de pines:
+ * - P0.27 como SDA0 (función 1)
+ * - P0.28 como SCL0 (función 1)
  */
 void cfgI2c(void) {
-    LPC_I2C_TypeDef* I2CDEV = LPC_I2C1;
+    PINSEL_CFG_Type pin_cfg;
+    
+    // Configurar P0.27 como SDA0 (función 1)
+    pin_cfg.portNum = PINSEL_PORT_0;
+    pin_cfg.pinNum = PINSEL_PIN_27;
+    pin_cfg.funcNum = PINSEL_FUNC_1;  // SDA0
+    pin_cfg.pinMode = PINSEL_TRISTATE;  // Sin pull-up/pull-down (I2C usa pull-up externo)
+    pin_cfg.openDrain = PINSEL_OD_OPENDRAIN;  // Open-drain (requerido para I2C)
+    PINSEL_ConfigPin(&pin_cfg);
+    
+    // Configurar P0.28 como SCL0 (función 1)
+    pin_cfg.pinNum = PINSEL_PIN_28;
+    pin_cfg.funcNum = PINSEL_FUNC_1;  // SCL0
+    PINSEL_ConfigPin(&pin_cfg);
+    
+    // Inicializar I2C0 a 100kHz
+    LPC_I2C_TypeDef* I2CDEV = LPC_I2C0;
     I2C_Init(I2CDEV, 100000);
     I2C_Cmd(I2CDEV, ENABLE);
 }
