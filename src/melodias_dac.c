@@ -81,6 +81,37 @@ const Nota melodia_salto[] = {
     {SILENCIO, 0}
 };
 
+// Melodía de fondo tipo Mario Bros (música ambiente del juego)
+const Nota melodia_fondo[] = {
+    // Intro
+    {MI_5, CORCHEA}, {MI_5, CORCHEA}, {SILENCIO, CORCHEA}, {MI_5, CORCHEA},
+    {SILENCIO, CORCHEA}, {DO_5, CORCHEA}, {MI_5, CORCHEA}, {SILENCIO, CORCHEA},
+    {SOL_5, NEGRA}, {SILENCIO, NEGRA},
+    {SOL_4, NEGRA}, {SILENCIO, NEGRA},
+    
+    // Sección principal
+    {DO_5, NEGRA}, {SILENCIO, CORCHEA}, {SOL_4, NEGRA}, {SILENCIO, CORCHEA},
+    {MI_4, NEGRA}, {SILENCIO, CORCHEA}, {LA_4, CORCHEA}, {SILENCIO, CORCHEA},
+    {SI_4, CORCHEA}, {SILENCIO, CORCHEA}, {LA_S4, CORCHEA}, {LA_4, CORCHEA},
+    
+    {SOL_4, NEGRA}, {MI_5, NEGRA}, {SOL_5, NEGRA},
+    {LA_5, CORCHEA}, {SILENCIO, CORCHEA}, {FA_5, CORCHEA}, {SOL_5, CORCHEA},
+    {SILENCIO, CORCHEA}, {MI_5, CORCHEA}, {SILENCIO, CORCHEA}, {DO_5, CORCHEA},
+    {RE_5, CORCHEA}, {SI_4, CORCHEA}, {SILENCIO, NEGRA},
+    
+    // Repetir variación
+    {DO_5, NEGRA}, {SILENCIO, CORCHEA}, {SOL_4, NEGRA}, {SILENCIO, CORCHEA},
+    {MI_4, NEGRA}, {SILENCIO, CORCHEA}, {LA_4, CORCHEA}, {SILENCIO, CORCHEA},
+    {SI_4, CORCHEA}, {SILENCIO, CORCHEA}, {LA_S4, CORCHEA}, {LA_4, CORCHEA},
+    
+    {SOL_4, NEGRA}, {MI_5, NEGRA}, {SOL_5, NEGRA},
+    {LA_5, CORCHEA}, {SILENCIO, CORCHEA}, {FA_5, CORCHEA}, {SOL_5, CORCHEA},
+    {SILENCIO, CORCHEA}, {MI_5, CORCHEA}, {SILENCIO, CORCHEA}, {DO_5, CORCHEA},
+    {RE_5, CORCHEA}, {SI_4, CORCHEA}, {SILENCIO, NEGRA},
+    
+    {SILENCIO, 0}
+};
+
 /* ========================== VARIABLES INTERNAS ============================ */
 
 static volatile uint8_t indice_tabla_onda = 0;
@@ -92,6 +123,12 @@ static volatile uint8_t volumen_porcentaje = 100;
 static const Nota *melodia_actual = NULL;
 static volatile uint16_t indice_nota_actual = 0;
 static volatile uint32_t tiempo_inicio_nota = 0;
+static volatile uint8_t modo_loop = 0;  // 1 = loop continuo, 0 = una sola vez
+
+// Sistema de prioridades para melodías
+static const Nota *melodia_fondo_guardada = NULL;  // Melodía de fondo pausada
+static volatile uint16_t indice_fondo_guardado = 0;
+static volatile uint32_t tiempo_fondo_guardado = 0;
 
 /* ==================== MANEJADOR DE INTERRUPCIONES ========================= */
 
@@ -269,15 +306,38 @@ void melodias_init(void) {
 void melodias_iniciar(const Nota *melodia) {
     if (melodia == NULL) return;
     
+    // Si hay música de fondo en loop, guardarla para reanudarla después
+    if (modo_loop && melodia_actual != NULL) {
+        melodia_fondo_guardada = melodia_actual;
+        indice_fondo_guardado = indice_nota_actual;
+        tiempo_fondo_guardado = tiempo_inicio_nota;
+    }
+    
     melodia_actual = melodia;
     indice_nota_actual = 0;
     tiempo_inicio_nota = tiempo_transcurrido_ms;
+    modo_loop = 0;  // Modo normal (una sola reproducción)
+    set_frecuencia(melodia[0].frecuencia);
+}
+
+void melodias_iniciar_loop(const Nota *melodia) {
+    if (melodia == NULL) return;
+    
+    // No guardar nada si iniciamos un loop nuevo
+    melodia_fondo_guardada = NULL;
+    
+    melodia_actual = melodia;
+    indice_nota_actual = 0;
+    tiempo_inicio_nota = tiempo_transcurrido_ms;
+    modo_loop = 1;  // Modo loop (repetir al terminar)
     set_frecuencia(melodia[0].frecuencia);
 }
 
 void melodias_detener(void) {
     melodia_actual = NULL;
+    melodia_fondo_guardada = NULL;
     indice_nota_actual = 0;
+    modo_loop = 0;
     set_frecuencia(0);
     DAC_UpdateValue(0);
 }
@@ -299,9 +359,29 @@ void melodias_actualizar(void) {
         
         indice_nota_actual++;
         
+        // Verificar si llegamos al final de la melodía
         if (melodia_actual[indice_nota_actual].frecuencia == SILENCIO && 
             melodia_actual[indice_nota_actual].duracion == 0) {
-            melodias_detener();
+            
+            // Si está en modo loop, reiniciar desde el principio
+            if (modo_loop) {
+                indice_nota_actual = 0;
+                set_frecuencia(melodia_actual[0].frecuencia);
+                tiempo_inicio_nota = tiempo_actual;
+            } else {
+                // Si hay música de fondo guardada, reanudarla
+                if (melodia_fondo_guardada != NULL) {
+                    melodia_actual = melodia_fondo_guardada;
+                    indice_nota_actual = indice_fondo_guardado;
+                    tiempo_inicio_nota = tiempo_actual - (tiempo_fondo_guardado - tiempo_actual);
+                    modo_loop = 1;  // Restaurar modo loop
+                    melodia_fondo_guardada = NULL;
+                    set_frecuencia(melodia_actual[indice_nota_actual].frecuencia);
+                } else {
+                    // Si no hay música guardada, detener
+                    melodias_detener();
+                }
+            }
             return;
         }
         
