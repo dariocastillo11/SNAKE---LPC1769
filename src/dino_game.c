@@ -68,7 +68,6 @@ static uint8_t obstacles[DINO_COLS];
 static uint8_t dino_col = 2;          /* Columna fija del dinosaurio */
 static int8_t dino_vpos = 0;          /* Posición vertical (0=suelo, >0=aire) */
 static int8_t dino_velocity = 0;      /* Velocidad vertical (sin usar actualmente) */
-static int dino_row = DINO_ROW_GROUND; /* Fila actual del dinosaurio */
 
 /* Generación de obstáculos */
 static uint8_t spawn_counter = 0;
@@ -168,9 +167,6 @@ static void draw_game_screen(void) {
        y la velocidad de caída */
     int height = 0;
     
-    /* Ajustar umbrales según si está cayendo rápido o no */
-    int fall_speed = (move_interval <= 3) ? 2 : 1;
-    
     /* Umbrales más conservadores para evitar parpadeos */
     if (dino_vpos >= 10) {
         height = 2;      /* muy alto */
@@ -254,7 +250,8 @@ static void check_collision(void) {
     /* Verificar si hay obstáculo en la columna del dinosaurio */
     if (obstacles[dino_col]) {
         game_over = 1;
-        // Reproducir melodía de game over
+        /* Detener música de fondo antes de reproducir melodía de game over */
+        melodias_detener();
         melodias_iniciar(melodia_game_over);
     }
 }
@@ -444,9 +441,8 @@ void TIMER2_IRQHandler(void) {
  * - Estado inicial del juego
  * - Pantalla inicial en LCD
  * 
- * IMPORTANTE: NO deshabilita TIMER0_IRQn ni TIMER1_IRQn porque el sistema
- * de audio (melodias_dac.c) los necesita para generar las melodías.
- * Cada subsistema tiene su timer independiente sin conflictos.
+ * Nota: Deshabilita TIMER0_IRQn para evitar conflictos con otras ISRs
+ * que puedan escribir en el LCD simultáneamente.
  */
 void dino_game_init(void) {
     /* Configurar pin P0.4 como GPIO input (pull-up) */
@@ -474,8 +470,9 @@ void dino_game_init(void) {
     lcd_setCursor(1, 0);
     lcd_escribir("Presiona para jugar");
 
-    /* NOTA: No deshabilitar TIMER0_IRQn - es necesario para el sistema de audio DAC.
-       El sistema de melodías usa TIMER0 y TIMER1, el juego usa TIMER2. */
+    /* NOTA: TIMER0_IRQn debe estar HABILITADO para que funcione el DAC/audio.
+       El sistema de melodías no interfiere con el LCD porque usa DMA y 
+       no hace llamadas bloqueantes desde la ISR. */
 }
 /**
  * @brief Debounce del botón y actualización de estado.
@@ -607,6 +604,10 @@ void dino_game_run(void) {
         if (button_pressed_edge()) {
             game_started = 1;
             dino_game_restart();
+            
+            /* Iniciar música de fondo en loop continuo */
+            melodias_iniciar_loop(melodia_fondo);
+            
             lcd_borrarPantalla();
             /* dibujar primer frame inmediatamente */
             draw_score_display();
