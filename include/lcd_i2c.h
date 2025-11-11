@@ -7,7 +7,7 @@
 #ifndef LCD_I2C_H
 #define LCD_I2C_H
 
-#include <stdint.h> 
+#include <stdint.h>
 
 /**
  * @brief Inicializa el LCD en modo 4 bits y lo deja listo para recibir comandos y datos.
