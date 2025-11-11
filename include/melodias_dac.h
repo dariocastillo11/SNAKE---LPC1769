@@ -3,17 +3,17 @@
  * @brief Sistema de reproducción de melodías usando DAC y Timer
  * @details Permite reproducir melodías musicales en segundo plano sin bloquear
  *          la ejecución del programa principal.
- * 
+ *
  * Hardware requerido:
  * - P0.26: Salida DAC (AOUT)
  * - P0.22: LED indicador de actividad (opcional)
- * 
+ *
  * Uso básico:
  * 1. Llamar melodias_init() al inicio del programa
  * 2. Llamar melodias_iniciar(melodia) para comenzar a tocar
  * 3. Llamar melodias_actualizar() en el loop principal
  * 4. Verificar melodias_esta_sonando() para saber si hay audio
- * 
+ *
  * @date Noviembre 2025
  */
 
@@ -94,6 +94,7 @@ extern const Nota melodia_tetris[];
 extern const Nota melodia_nokia[];
 extern const Nota melodia_game_over[];  // Melodía corta para game over
 extern const Nota melodia_salto[];      // Efecto de sonido para salto
+extern const Nota melodia_fondo[];      // Melodía de fondo larga (tipo Mario Bros)
 
 /* ==================== FUNCIONES PÚBLICAS ================================== */
 
@@ -111,6 +112,14 @@ void melodias_init(void);
  * @note Si hay una melodía sonando, esta se detiene y empieza la nueva
  */
 void melodias_iniciar(const Nota *melodia);
+
+/**
+ * @brief Inicia una melodía en modo loop continuo (música de fondo)
+ * @param melodia Puntero al arreglo de notas (debe terminar con {SILENCIO, 0})
+ * @note La melodía se repite automáticamente al terminar
+ * @note Ideal para música de fondo en juegos
+ */
+void melodias_iniciar_loop(const Nota *melodia);
 
 /**
  * @brief Detiene la reproducción de la melodía actual

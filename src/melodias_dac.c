@@ -3,7 +3,7 @@
  * @brief Implementación del sistema de reproducción de melodías con DAC
  * @details Genera señales triangulares usando el DAC y Timer0 para reproducir
  *          melodías musicales en segundo plano sin bloquear el programa.
- * 
+ *
  * @date Noviembre 2025
  */
 
@@ -13,7 +13,7 @@
 #include "lpc17xx_gpio.h"
 #include "lpc17xx_pinsel.h"
 #include "lpc17xx_dac.h"
-
+#include "dino_game.h"
 /* ==================== CONFIGURACIÓN INTERNA =============================== */
 
 #define NUMERO_MUESTRAS            64
@@ -88,27 +88,27 @@ const Nota melodia_fondo[] = {
     {SILENCIO, CORCHEA}, {DO_5, CORCHEA}, {MI_5, CORCHEA}, {SILENCIO, CORCHEA},
     {SOL_5, NEGRA}, {SILENCIO, NEGRA},
     {SOL_4, NEGRA}, {SILENCIO, NEGRA},
-    
+
     // Sección principal
     {DO_5, NEGRA}, {SILENCIO, CORCHEA}, {SOL_4, NEGRA}, {SILENCIO, CORCHEA},
     {MI_4, NEGRA}, {SILENCIO, CORCHEA}, {LA_4, CORCHEA}, {SILENCIO, CORCHEA},
     {SI_4, CORCHEA}, {SILENCIO, CORCHEA}, {LA_S4, CORCHEA}, {LA_4, CORCHEA},
-    
+
     {SOL_4, NEGRA}, {MI_5, NEGRA}, {SOL_5, NEGRA},
     {LA_5, CORCHEA}, {SILENCIO, CORCHEA}, {FA_5, CORCHEA}, {SOL_5, CORCHEA},
     {SILENCIO, CORCHEA}, {MI_5, CORCHEA}, {SILENCIO, CORCHEA}, {DO_5, CORCHEA},
     {RE_5, CORCHEA}, {SI_4, CORCHEA}, {SILENCIO, NEGRA},
-    
+
     // Repetir variación
     {DO_5, NEGRA}, {SILENCIO, CORCHEA}, {SOL_4, NEGRA}, {SILENCIO, CORCHEA},
     {MI_4, NEGRA}, {SILENCIO, CORCHEA}, {LA_4, CORCHEA}, {SILENCIO, CORCHEA},
     {SI_4, CORCHEA}, {SILENCIO, CORCHEA}, {LA_S4, CORCHEA}, {LA_4, CORCHEA},
-    
+
     {SOL_4, NEGRA}, {MI_5, NEGRA}, {SOL_5, NEGRA},
     {LA_5, CORCHEA}, {SILENCIO, CORCHEA}, {FA_5, CORCHEA}, {SOL_5, CORCHEA},
     {SILENCIO, CORCHEA}, {MI_5, CORCHEA}, {SILENCIO, CORCHEA}, {DO_5, CORCHEA},
     {RE_5, CORCHEA}, {SI_4, CORCHEA}, {SILENCIO, NEGRA},
-    
+
     {SILENCIO, 0}
 };
 
@@ -142,14 +142,14 @@ void TIMER0_IRQHandler(void) {
 
         if (reproduciendo && frecuencia_actual > 0) {
             uint16_t valor_dac = TABLA_TRIANGULAR[indice_tabla_onda];
-            
+
             // Aplicar volumen
             if (volumen_porcentaje < 100) {
                 valor_dac = (valor_dac * volumen_porcentaje) / 100;
             }
-            
+
             DAC_UpdateValue(valor_dac);
-            
+
             indice_tabla_onda++;
             if(indice_tabla_onda >= NUMERO_MUESTRAS) {
                 indice_tabla_onda = 0;
@@ -195,26 +195,26 @@ static void set_frecuencia(uint16_t frecuencia_hz) {
         indice_tabla_onda = 0;
         return;
     }
-    
+
     if (frecuencia_hz < 50 || frecuencia_hz > 5000) {
         return;
     }
-    
+
     uint32_t periodo_completo_us = MICROSEGUNDOS_POR_SEGUNDO / frecuencia_hz;
     uint32_t tiempo_entre_muestras_us = periodo_completo_us / NUMERO_MUESTRAS;
-    
+
     if (tiempo_entre_muestras_us < 10) {
         tiempo_entre_muestras_us = 10;
     }
-    
+
     TIM_Cmd(LPC_TIM0, DISABLE);
     TIM_ResetCounter(LPC_TIM0);
     TIM_UpdateMatchValue(LPC_TIM0, TIM_MATCH_CHANNEL_0, tiempo_entre_muestras_us);
-    
+
     indice_tabla_onda = 0;
     frecuencia_actual = frecuencia_hz;
     reproduciendo = 1;
-    
+
     TIM_Cmd(LPC_TIM0, ENABLE);
 }
 
@@ -223,14 +223,14 @@ static void set_frecuencia(uint16_t frecuencia_hz) {
  */
 static void config_gpio(void) {
     PINSEL_CFG_Type pin_cfg;
-    
+
     pin_cfg.portNum = PINSEL_PORT_0;
     pin_cfg.pinNum = PINSEL_PIN_22;
     pin_cfg.funcNum = PINSEL_FUNC_0;
     pin_cfg.pinMode = PINSEL_PULLUP;
     pin_cfg.openDrain = PINSEL_OD_NORMAL;
     PINSEL_ConfigPin(&pin_cfg);
-    
+
     GPIO_SetDir(PORT_CERO, PIN_22, 1);
 }
 
@@ -239,14 +239,14 @@ static void config_gpio(void) {
  */
 static void config_dac(void) {
     PINSEL_CFG_Type pin_cfg;
-    
+
     pin_cfg.portNum = PINSEL_PORT_0;
     pin_cfg.pinNum = PINSEL_PIN_26;
     pin_cfg.funcNum = PINSEL_FUNC_2;  // AOUT
     pin_cfg.pinMode = PINSEL_TRISTATE;
     pin_cfg.openDrain = PINSEL_OD_NORMAL;
     PINSEL_ConfigPin(&pin_cfg);
-    
+
     DAC_Init();
     DAC_SetBias(0);
     DAC_UpdateValue(0);
@@ -263,7 +263,7 @@ static void config_timer(void) {
     cfgtimer.prescaleOption = TIM_USVAL;
     cfgtimer.prescaleValue = 1;
     TIM_Init(LPC_TIM0, TIM_TIMER_MODE, &cfgtimer);
-    
+
     cfgmatch.matchChannel = 0;
     cfgmatch.intOnMatch = ENABLE;
     cfgmatch.resetOnMatch = ENABLE;
@@ -271,16 +271,16 @@ static void config_timer(void) {
     cfgmatch.extMatchOutputType = TIM_NOTHING;
     cfgmatch.matchValue = 100;
     TIM_ConfigMatch(LPC_TIM0, &cfgmatch);
-    
+
     NVIC_EnableIRQ(TIMER0_IRQn);
     NVIC_SetPriority(TIMER0_IRQn, 1);
     TIM_Cmd(LPC_TIM0, ENABLE);
-    
+
     // Timer1 - Tiempo (1ms)
     cfgtimer.prescaleOption = TIM_USVAL;
     cfgtimer.prescaleValue = 1;
     TIM_Init(LPC_TIM1, TIM_TIMER_MODE, &cfgtimer);
-    
+
     cfgmatch.matchChannel = 0;
     cfgmatch.intOnMatch = ENABLE;
     cfgmatch.resetOnMatch = ENABLE;
@@ -288,7 +288,7 @@ static void config_timer(void) {
     cfgmatch.extMatchOutputType = TIM_NOTHING;
     cfgmatch.matchValue = 1000;
     TIM_ConfigMatch(LPC_TIM1, &cfgmatch);
-    
+
     NVIC_EnableIRQ(TIMER1_IRQn);
     NVIC_SetPriority(TIMER1_IRQn, 2);
     TIM_Cmd(LPC_TIM1, ENABLE);
@@ -305,14 +305,14 @@ void melodias_init(void) {
 
 void melodias_iniciar(const Nota *melodia) {
     if (melodia == NULL) return;
-    
+
     // Si hay música de fondo en loop, guardarla para reanudarla después
     if (modo_loop && melodia_actual != NULL) {
         melodia_fondo_guardada = melodia_actual;
         indice_fondo_guardado = indice_nota_actual;
         tiempo_fondo_guardado = tiempo_inicio_nota;
     }
-    
+
     melodia_actual = melodia;
     indice_nota_actual = 0;
     tiempo_inicio_nota = tiempo_transcurrido_ms;
@@ -322,10 +322,10 @@ void melodias_iniciar(const Nota *melodia) {
 
 void melodias_iniciar_loop(const Nota *melodia) {
     if (melodia == NULL) return;
-    
+
     // No guardar nada si iniciamos un loop nuevo
     melodia_fondo_guardada = NULL;
-    
+
     melodia_actual = melodia;
     indice_nota_actual = 0;
     tiempo_inicio_nota = tiempo_transcurrido_ms;
@@ -344,25 +344,25 @@ void melodias_detener(void) {
 
 void melodias_actualizar(void) {
     if (melodia_actual == NULL) return;
-    
+
     uint32_t tiempo_actual = tiempo_transcurrido_ms;
     uint32_t duracion_nota = melodia_actual[indice_nota_actual].duracion;
     uint32_t tiempo_transcurrido_nota = tiempo_actual - tiempo_inicio_nota;
-    
+
     if (tiempo_transcurrido_nota >= duracion_nota) {
         uint32_t tiempo_total_con_pausa = duracion_nota + PAUSA_ARTICULACION_MS;
-        
+
         if (tiempo_transcurrido_nota < tiempo_total_con_pausa) {
             set_frecuencia(0);
             return;
         }
-        
+
         indice_nota_actual++;
-        
+
         // Verificar si llegamos al final de la melodía
-        if (melodia_actual[indice_nota_actual].frecuencia == SILENCIO && 
+        if (melodia_actual[indice_nota_actual].frecuencia == SILENCIO &&
             melodia_actual[indice_nota_actual].duracion == 0) {
-            
+
             // Si está en modo loop, reiniciar desde el principio
             if (modo_loop) {
                 indice_nota_actual = 0;
@@ -384,7 +384,7 @@ void melodias_actualizar(void) {
             }
             return;
         }
-        
+
         set_frecuencia(melodia_actual[indice_nota_actual].frecuencia);
         tiempo_inicio_nota = tiempo_actual;
     }
