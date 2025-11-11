@@ -5,15 +5,15 @@
  * Hardware:
  * - P0.2: TXD0 (transmisión a módulo Bluetooth)
  * - P0.3: RXD0 (recepción desde módulo Bluetooth)
- * - Baud rate: 9600 bps
+ * - Velocidad: 9600 bps
  *
  * Comandos soportados:
- * - 'W' o 'w': Arriba (joystick UP)
- * - 'S' o 's': Abajo (joystick DOWN)
- * - 'A' o 'a': Izquierda (joystick LEFT)
- * - 'D' o 'd': Derecha (joystick RIGHT)
- * - 'B' o 'b': Botón (equivalente a presionar P0.4)
- * - 'P' o 'p': Pausa (Snake) / Reintentar (Dino)
+ * - 'W' o 'w': Arriba
+ * - 'S' o 's': Abajo
+ * - 'A' o 'a': Izquierda
+ * - 'D' o 'd': Derecha
+ * - 'B' o 'b': Botón
+ * - 'P' o 'p': Pausa / Reintentar
  *
  * @date Noviembre 2025
  */
@@ -24,7 +24,7 @@
 #include <stdint.h>
 
 /* === CONFIGURACIÓN === */
-#define BT_UART0_BAUD    9600
+#define BT_VELOCIDAD_UART0    9600
 
 /* === FUNCIONES PÚBLICAS === */
 
@@ -34,32 +34,40 @@
  * Configura:
  * - P0.2 como TXD0 (PINSEL función 01)
  * - P0.3 como RXD0 (PINSEL función 01)
- * - Baud rate: 9600 bps
+ * - Velocidad: 9600 bps
  * - Formato: 8 bits, sin paridad, 1 stop bit (8N1)
  * - FIFO habilitado
  */
-void bt_init(void);
+void bt_inicializar(void);
 
 /**
  * @brief Lee un carácter desde Bluetooth (no bloqueante)
  * 
  * @return Carácter recibido (0-255) o -1 si no hay datos disponibles
  */
-int bt_read_char_non_block(void);
+int bt_leer_caracter_no_bloqueante(void);
+
+/**
+ * @brief Actualiza el buffer UART leyendo caracteres disponibles
+ * 
+ * Debe llamarse periódicamente desde el loop principal para recibir
+ * comandos Bluetooth. Procesa automáticamente los comandos recibidos.
+ */
+void bt_actualizar_buffer(void);
 
 /**
  * @brief Envía un carácter por Bluetooth
  * 
- * @param c Carácter a enviar
+ * @param caracter Carácter a enviar
  */
-void bt_write_char(char c);
+void bt_escribir_caracter(char caracter);
 
 /**
  * @brief Envía una cadena por Bluetooth
  * 
- * @param s Cadena terminada en '\0' a enviar
+ * @param cadena Cadena terminada en '\0' a enviar
  */
-void bt_write_str(const char *s);
+void bt_escribir_cadena(const char *cadena);
 
 /**
  * @brief Procesa comandos Bluetooth recibidos
@@ -68,36 +76,36 @@ void bt_write_str(const char *s);
  * del joystick para que los juegos interpreten los comandos
  * como si vinieran del joystick físico.
  * 
- * Debe llamarse periódicamente desde el main loop.
+ * Debe llamarse periódicamente desde el bucle principal.
  */
-void bt_process_commands(void);
+void bt_procesar_comandos(void);
 
 /**
  * @brief Obtiene el valor simulado del eje X del joystick
  * 
  * @return Valor ADC simulado (0-4095):
- *         - < 500: Izquierda ('A')
+ *         - < 500: Izquierda
  *         - 2048: Centro (neutral)
- *         - > 3500: Derecha ('D')
+ *         - > 3500: Derecha
  */
-uint16_t bt_get_simulated_x(void);
+uint16_t bt_obtener_x_simulado(void);
 
 /**
  * @brief Obtiene el valor simulado del eje Y del joystick
  * 
  * @return Valor ADC simulado (0-4095):
- *         - < 500: Arriba ('W')
+ *         - < 500: Arriba
  *         - 2048: Centro (neutral)
- *         - > 3500: Abajo ('S')
+ *         - > 3500: Abajo
  */
-uint16_t bt_get_simulated_y(void);
+uint16_t bt_obtener_y_simulado(void);
 
 /**
  * @brief Verifica si hay un comando de botón pendiente
  * 
- * @return 1 si se recibió comando 'B' (botón), 0 en caso contrario
+ * @return 1 si se recibió comando de botón, 0 en caso contrario
  */
-uint8_t bt_get_button_command(void);
+uint8_t bt_obtener_comando_boton(void);
 
 /**
  * @brief Limpia el flag de comando de botón
@@ -105,6 +113,6 @@ uint8_t bt_get_button_command(void);
  * Debe llamarse después de procesar un comando de botón
  * para evitar múltiples activaciones.
  */
-void bt_clear_button_command(void);
+void bt_limpiar_comando_boton(void);
 
 #endif /* BLUETOOTH_UART_H */

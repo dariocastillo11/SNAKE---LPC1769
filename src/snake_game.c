@@ -23,11 +23,11 @@
 #include <stdlib.h>
 
 /* === CONFIGURACIÓN DEL JUEGO === */
-#define SNAKE_LCD_COLS 20        // Ancho del LCD
-#define SNAKE_LCD_ROWS 4         // Alto del LCD
-#define SNAKE_MAX_LENGTH 50      // Longitud máxima de la serpiente
-#define SNAKE_TICK_MS 50         // Período de tick (50ms)
-#define SNAKE_SPEED_TICKS 6      // Ticks entre movimientos (300ms inicial)
+#define COLUMNAS_LCD_SERPIENTE 20        // Ancho del LCD
+#define FILAS_LCD_SERPIENTE 4         // Alto del LCD
+#define LONGITUD_MAXIMA_SERPIENTE 50      // Longitud máxima de la serpiente
+#define TICK_MS_SERPIENTE 50         // Período de tick (50ms)
+#define TICKS_VELOCIDAD_SERPIENTE 10      // Ticks entre movimientos (500ms inicial - más lento)
 
 /* === ESTRUCTURAS === */
 typedef struct {
@@ -43,7 +43,7 @@ typedef enum {
 } Direccion;
 
 /* === VARIABLES DE ESTADO === */
-static Posicion snake[SNAKE_MAX_LENGTH];  // Cuerpo de la serpiente
+static Posicion snake[LONGITUD_MAXIMA_SERPIENTE];  // Cuerpo de la serpiente
 static uint8_t snake_length = 3;          // Longitud actual
 static Direccion direccion_actual = DIR_DERECHA;
 static Direccion direccion_siguiente = DIR_DERECHA;
@@ -54,8 +54,8 @@ static uint8_t game_started = 0;          // 1 = juego iniciado
 static uint8_t paused = 0;                // 1 = juego pausado
 static volatile uint8_t tick_flag = 0;    // Flag de tick del timer
 static uint8_t move_counter = 0;          // Contador para velocidad
-static uint8_t speed_ticks = SNAKE_SPEED_TICKS;
-static uint8_t buffer_lcd[SNAKE_LCD_ROWS][SNAKE_LCD_COLS + 1]; // Buffer para LCD
+static uint8_t speed_ticks = TICKS_VELOCIDAD_SERPIENTE;
+static uint8_t buffer_lcd[FILAS_LCD_SERPIENTE][COLUMNAS_LCD_SERPIENTE + 1]; // Buffer para LCD
 
 /* === FUNCIONES AUXILIARES === */
 
@@ -79,8 +79,8 @@ static void generar_comida(void) {
     uint8_t valida;
     do {
         valida = 1;
-        comida.x = rand_range(0, SNAKE_LCD_COLS - 1);
-        comida.y = rand_range(0, SNAKE_LCD_ROWS - 1);
+        comida.x = rand_range(0, COLUMNAS_LCD_SERPIENTE - 1);
+        comida.y = rand_range(0, FILAS_LCD_SERPIENTE - 1);
         
         // Verificar que no esté sobre la serpiente
         for (uint8_t i = 0; i < snake_length; i++) {
@@ -99,7 +99,7 @@ static void generar_comida(void) {
  * - Serpiente de 3 segmentos en el centro del LCD
  * - Dirección inicial hacia la derecha
  * - Puntuación en cero
- * - Velocidad inicial (SNAKE_SPEED_TICKS = 6)
+ * - Velocidad inicial (TICKS_VELOCIDAD_SERPIENTE = 6)
  * - Genera primera comida en posición aleatoria
  */
 static void inicializar_estado(void) {
@@ -119,7 +119,7 @@ static void inicializar_estado(void) {
     game_started = 1;
     paused = 0;
     move_counter = 0;
-    speed_ticks = SNAKE_SPEED_TICKS;
+    speed_ticks = TICKS_VELOCIDAD_SERPIENTE;
     
     generar_comida();
 }
@@ -132,9 +132,9 @@ static void inicializar_estado(void) {
  * el buffer para dibujar un nuevo frame del juego.
  */
 static void limpiar_buffer(void) {
-    for (uint8_t y = 0; y < SNAKE_LCD_ROWS; y++) {
-        memset(buffer_lcd[y], ' ', SNAKE_LCD_COLS);
-        buffer_lcd[y][SNAKE_LCD_COLS] = '\0';
+    for (uint8_t y = 0; y < FILAS_LCD_SERPIENTE; y++) {
+        memset(buffer_lcd[y], ' ', COLUMNAS_LCD_SERPIENTE);
+        buffer_lcd[y][COLUMNAS_LCD_SERPIENTE] = '\0';
     }
 }
 
@@ -154,13 +154,13 @@ static void dibujar_en_buffer(void) {
     
     // Dibujar serpiente
     for (uint8_t i = 0; i < snake_length; i++) {
-        if (snake[i].x < SNAKE_LCD_COLS && snake[i].y < SNAKE_LCD_ROWS) {
+        if (snake[i].x < COLUMNAS_LCD_SERPIENTE && snake[i].y < FILAS_LCD_SERPIENTE) {
             buffer_lcd[snake[i].y][snake[i].x] = (i == 0) ? 'O' : 'o';  // Cabeza 'O', cuerpo 'o'
         }
     }
     
     // Dibujar comida
-    if (comida.x < SNAKE_LCD_COLS && comida.y < SNAKE_LCD_ROWS) {
+    if (comida.x < COLUMNAS_LCD_SERPIENTE && comida.y < FILAS_LCD_SERPIENTE) {
         buffer_lcd[comida.y][comida.x] = '*';
     }
 }
@@ -173,8 +173,8 @@ static void dibujar_en_buffer(void) {
  * preparar todo el frame antes de mostrarlo, evitando parpadeos.
  */
 static void actualizar_lcd(void) {
-    for (uint8_t y = 0; y < SNAKE_LCD_ROWS; y++) {
-        lcd_setCursor(y, 0);
+    for (uint8_t y = 0; y < FILAS_LCD_SERPIENTE; y++) {
+        lcd_establecer_cursor(y, 0);
         lcd_escribir((char*)buffer_lcd[y]);
     }
 }
@@ -195,11 +195,11 @@ static uint8_t leer_boton_p04(void) {
     uint8_t physical = (LPC_GPIO0->FIOPIN & (1u << 4)) ? 0 : 1;
     
     /* Leer comando Bluetooth */
-    uint8_t bt_button = bt_get_button_command();
+    uint8_t bt_button = bt_obtener_comando_boton();
     
     /* Si cualquiera está presionado, retornar 1 */
     if (bt_button) {
-        bt_clear_button_command();  // Limpiar después de leer
+        bt_limpiar_comando_boton();  // Limpiar después de leer
         return 1;
     }
     
@@ -254,7 +254,7 @@ static void procesar_entrada(void) {
  *    - Propio cuerpo → game_over
  * 3. Verifica si comió:
  *    - Incrementa score
- *    - Aumenta longitud (hasta SNAKE_MAX_LENGTH)
+ *    - Aumenta longitud (hasta LONGITUD_MAXIMA_SERPIENTE)
  *    - Genera nueva comida
  *    - Aumenta velocidad cada 5 comidas (reduce speed_ticks)
  * 4. Mueve el cuerpo (desde la cola hacia adelante)
@@ -275,7 +275,7 @@ static void mover_serpiente(void) {
     }
     
     // Verificar colisión con paredes
-    if (nueva_cabeza.x >= SNAKE_LCD_COLS || nueva_cabeza.y >= SNAKE_LCD_ROWS) {
+    if (nueva_cabeza.x >= COLUMNAS_LCD_SERPIENTE || nueva_cabeza.y >= FILAS_LCD_SERPIENTE) {
         game_over = 1;
         melodias_iniciar(melodia_game_over);  // Cambiar a melodía de Game Over
         return;
@@ -295,7 +295,7 @@ static void mover_serpiente(void) {
     
     if (comio) {
         score++;
-        if (snake_length < SNAKE_MAX_LENGTH) {
+        if (snake_length < LONGITUD_MAXIMA_SERPIENTE) {
             snake_length++;
         }
         generar_comida();
@@ -330,9 +330,9 @@ static void mover_serpiente(void) {
  */
 static void mostrar_game_over(void) {
     lcd_borrarPantalla();
-    lcd_setCursor(0, 0);
+    lcd_establecer_cursor(0, 0);
     lcd_escribir("   GAME OVER!");
-    lcd_setCursor(1, 0);
+    lcd_establecer_cursor(1, 0);
     lcd_escribir("  Puntuacion: ");
     
     char score_str[10];
@@ -354,7 +354,7 @@ static void mostrar_game_over(void) {
     score_str[idx] = '\0';
     lcd_escribir(score_str);
     
-    lcd_setCursor(3, 0);
+    lcd_establecer_cursor(3, 0);
     lcd_escribir("Boton:Volver al menu");
 }
 
@@ -416,7 +416,7 @@ void TIMER3_IRQHandler(void) {
  * Inicializa el estado del juego, configura TIMER3, borra la pantalla
  * y dibuja el primer frame.
  */
-void snake_game_init(void) {
+void juego_serpiente_inicializar(void) {
     inicializar_estado();
     config_timer();
     
@@ -444,7 +444,7 @@ void snake_game_init(void) {
  * - game_over == 2: Volver al menú (solicitado por usuario)
  *   - El main loop debe detectar este estado y cambiar a menú
  */
-void snake_game_run(void) {
+void juego_serpiente_ejecutar(void) {
     if (!game_started) return;
     
     if (game_over == 1) {
@@ -474,7 +474,7 @@ void snake_game_run(void) {
     
     if (paused) {
         // Mostrar indicador de pausa
-        lcd_setCursor(0, 0);
+        lcd_establecer_cursor(0, 0);
         lcd_escribir("PAUSA");
         return;
     }
@@ -489,13 +489,13 @@ void snake_game_run(void) {
 }
 
 /**
- * @brief Reinicia el juego Snake
+ * @brief Reinicia el juego Serpiente
  * 
  * Resetea todas las variables al estado inicial sin borrar la pantalla
  * (el main loop se encarga de eso antes de volver al menú).
  * Útil para reiniciar después de game over.
  */
-void snake_game_restart(void) {
+void juego_serpiente_reiniciar(void) {
     inicializar_estado();
     // No borrar pantalla aquí - el main lo hace antes de volver al menú
 }
@@ -508,7 +508,7 @@ void snake_game_restart(void) {
  *         - 1: Game over (mostrando pantalla de game over)
  *         - 2: Usuario solicitó volver al menú (presionó botón en game over)
  */
-uint8_t snake_game_is_over(void) {
+uint8_t juego_serpiente_ha_terminado(void) {
     // Retorna: 0 = jugando, 1 = game over (pantalla mostrada), 2 = volver al menú
     return game_over;
 }
@@ -518,6 +518,6 @@ uint8_t snake_game_is_over(void) {
  * 
  * @return Puntuación actual (número de comidas consumidas)
  */
-uint32_t snake_game_get_score(void) {
+uint32_t juego_serpiente_obtener_puntuacion(void) {
     return score;
 }

@@ -19,18 +19,18 @@
 /* === DEFINICIÓN DE PINES Y CONSTANTES === */
 
 // Pines del ADC para el joystick:
-#define VRX_PIN     23      // AD0.0 (P0.23) -> eje X del joystick
-#define VRY_PIN     24      // AD0.1 (P0.24) -> eje Y del joystick
-#define SW_PIN      10      // P2.10 -> botón del joystick (interrupción)
+#define PIN_EJE_X       23      // AD0.0 (P0.23) -> eje X del joystick
+#define PIN_EJE_Y       24      // AD0.1 (P0.24) -> eje Y del joystick
+#define PIN_BOTON       10      // P2.10 -> botón del joystick (interrupción)
 
 // Asignación de LEDs a pines GPIO según especificación:
 // P0.9, P0.8, P0.7, P0.6, P0.0
-#define LED_UP      9       // P0.9 -> LED indicador ARRIBA
-#define LED_DOWN    8       // P0.8 -> LED indicador ABAJO
-#define LED_LEFT    7       // P0.7 -> LED indicador IZQUIERDA
-#define LED_RIGHT   6       // P0.6 -> LED indicador DERECHA
-#define LED_BTN     0       // P0.0 -> LED indicador BOTÓN/CENTRO
-#define LED_ACTIVE_LOW 0    // 0 = LEDs se encienden con 1 (activo alto)
+#define LED_ARRIBA      9       // P0.9 -> LED indicador ARRIBA
+#define LED_ABAJO       8       // P0.8 -> LED indicador ABAJO
+#define LED_IZQUIERDA   7       // P0.7 -> LED indicador IZQUIERDA
+#define LED_DERECHA     6       // P0.6 -> LED indicador DERECHA
+#define LED_BOTON       0       // P0.0 -> LED indicador BOTÓN/CENTRO
+#define LED_ACTIVO_BAJO 0       // 0 = LEDs se encienden con 1 (activo alto)
 
 /* === UMBRALES DEL ADC === */
 // Los valores del ADC van de 0 a 4095 (12 bits)
@@ -38,11 +38,11 @@
 // Joystick abajo:     Y ≈ 4095
 // Joystick izquierda: X ≈ 6
 // Joystick derecha:   X ≈ 4095
-#define ADC_MIN         100     // Umbral para detectar posición extrema baja
-#define ADC_MAX         4000    // Umbral para detectar posición extrema alta
-#define ADC_CENTER      2048    // Centro teórico del ADC
-#define ADC_DEADZONE    500     // Zona muerta alrededor del centro (±500, aumentado)
-#define ADC_SAMPLES     4       // Número de muestras para promedio
+#define UMBRAL_MINIMO_ADC   100     // Umbral para detectar posición extrema baja
+#define UMBRAL_MAXIMO_ADC   4000    // Umbral para detectar posición extrema alta
+#define CENTRO_ADC          2048    // Centro teórico del ADC
+#define ZONA_MUERTA_ADC     500     // Zona muerta alrededor del centro (±500, aumentado)
+#define MUESTRAS_PROMEDIO   4       // Número de muestras para promedio
 
 /* === VARIABLES GLOBALES === */
 static volatile uint16_t ejeX = 2048;         // Última lectura del eje X (inicializar en centro)
@@ -57,14 +57,14 @@ static uint16_t prev_ejeY = 2048;             // Valor anterior de Y (para filtr
  * @brief Apaga todos los LEDs del joystick.
  */
 static inline void leds_all_off(void) {
-    if (LED_ACTIVE_LOW) {
+    if (LED_ACTIVO_BAJO) {
         // Activo bajo: escribir 1 apaga
-        LPC_GPIO0->FIOSET = (1U << LED_UP) | (1U << LED_DOWN) | 
-                            (1U << LED_LEFT) | (1U << LED_RIGHT) | (1U << LED_BTN);
+        LPC_GPIO0->FIOSET = (1U << LED_ARRIBA) | (1U << LED_ABAJO) | 
+                            (1U << LED_IZQUIERDA) | (1U << LED_DERECHA) | (1U << LED_BOTON);
     } else {
         // Activo alto: escribir 0 apaga
-        LPC_GPIO0->FIOCLR = (1U << LED_UP) | (1U << LED_DOWN) | 
-                            (1U << LED_LEFT) | (1U << LED_RIGHT) | (1U << LED_BTN);
+        LPC_GPIO0->FIOCLR = (1U << LED_ARRIBA) | (1U << LED_ABAJO) | 
+                            (1U << LED_IZQUIERDA) | (1U << LED_DERECHA) | (1U << LED_BOTON);
     }
 }
 
@@ -73,7 +73,7 @@ static inline void leds_all_off(void) {
  * @param led Número de pin del LED
  */
 static inline void led_on(uint32_t led) {
-    if (LED_ACTIVE_LOW)
+    if (LED_ACTIVO_BAJO)
         LPC_GPIO0->FIOCLR = (1U << led); // Activo bajo: 0 enciende
     else
         LPC_GPIO0->FIOSET = (1U << led); // Activo alto: 1 enciende
@@ -108,8 +108,8 @@ static void config_gpio_leds(void) {
     LPC_PINCON->PINSEL0 &= ~(3 << 18);  // P0.9
 
     // Configurar como salidas
-    LPC_GPIO0->FIODIR |= (1U << LED_UP) | (1U << LED_DOWN) | 
-                         (1U << LED_LEFT) | (1U << LED_RIGHT) | (1U << LED_BTN);
+    LPC_GPIO0->FIODIR |= (1U << LED_ARRIBA) | (1U << LED_ABAJO) | 
+                         (1U << LED_IZQUIERDA) | (1U << LED_DERECHA) | (1U << LED_BOTON);
 
     // Apagar todos los LEDs al inicio
     leds_all_off();
@@ -121,9 +121,9 @@ static void config_gpio_leds(void) {
 static void config_gpio_interrupt(void) {
     // Configurar P2.10 como entrada con interrupción
     LPC_PINCON->PINSEL4 &= ~(3 << 20);   // P2.10 como GPIO
-    LPC_GPIO2->FIODIR   &= ~(1 << SW_PIN);// Como entrada
-    LPC_GPIOINT->IO2IntEnF |= (1 << SW_PIN); // Interrumpir en flanco de bajada
-    LPC_GPIOINT->IO2IntClr  = (1 << SW_PIN); // Limpiar banderas pendientes
+    LPC_GPIO2->FIODIR   &= ~(1 << PIN_BOTON);// Como entrada
+    LPC_GPIOINT->IO2IntEnF |= (1 << PIN_BOTON); // Interrumpir en flanco de bajada
+    LPC_GPIOINT->IO2IntClr  = (1 << PIN_BOTON); // Limpiar banderas pendientes
     NVIC_EnableIRQ(EINT3_IRQn);           // Habilitar interrupción
 }
 
@@ -138,30 +138,30 @@ static void mostrar_direccion(uint16_t x, uint16_t y) {
 
     // Prioridad: 1° botón, 2° eje Y, 3° eje X
     if (boton_presionado) {
-        led_on(LED_BTN);
+        led_on(LED_BOTON);
         return;
     }
 
     // Eje Y (vertical):
-    if (y < ADC_MIN) {
+    if (y < UMBRAL_MINIMO_ADC) {
         // Joystick hacia arriba
-        led_on(LED_UP);
-    } else if (y > ADC_MAX) {
+        led_on(LED_ARRIBA);
+    } else if (y > UMBRAL_MAXIMO_ADC) {
         // Joystick hacia abajo
-        led_on(LED_DOWN);
-    } else if (x < ADC_MIN) {
+        led_on(LED_ABAJO);
+    } else if (x < UMBRAL_MINIMO_ADC) {
         // Joystick hacia izquierda
-        led_on(LED_LEFT);
-    } else if (x > ADC_MAX) {
+        led_on(LED_IZQUIERDA);
+    } else if (x > UMBRAL_MAXIMO_ADC) {
         // Joystick hacia derecha
-        led_on(LED_RIGHT);
+        led_on(LED_DERECHA);
     }
     // Si no se cumple ninguna condición, los LEDs quedan apagados (centro)
 }
 
 /* === FUNCIONES PÚBLICAS === */
 
-void joystick_init(void) {
+void joystick_inicializar(void) {
     config_adc();
     config_gpio_leds();
     config_gpio_interrupt();
@@ -177,13 +177,13 @@ void joystick_init(void) {
  * Los valores combinados se almacenan en ejeX/ejeY para que los
  * juegos los lean de forma transparente.
  */
-void joystick_update(void) {
+void joystick_actualizar(void) {
     /* Procesar comandos Bluetooth (actualiza valores simulados) */
-    bt_process_commands();
+    bt_procesar_comandos();
     
     /* Leer valores simulados de Bluetooth */
-    uint16_t bt_x = bt_get_simulated_x();
-    uint16_t bt_y = bt_get_simulated_y();
+    uint16_t bt_x = bt_obtener_x_simulado();
+    uint16_t bt_y = bt_obtener_y_simulado();
     
     /* Si Bluetooth está en centro (2048), leer joystick físico */
     if (bt_x == 2048 && bt_y == 2048) {
@@ -192,7 +192,7 @@ void joystick_update(void) {
         uint32_t sum_x = 0, sum_y = 0;
         
         // Tomar múltiples muestras y promediar
-        for (uint8_t i = 0; i < ADC_SAMPLES; i++) {
+        for (uint8_t i = 0; i < MUESTRAS_PROMEDIO; i++) {
             // Leer canal 0 (eje X)
             LPC_ADC->ADCR &= ~((0xFF) | (7 << 24));
             LPC_ADC->ADCR |= (1U << 0);
@@ -209,8 +209,8 @@ void joystick_update(void) {
         }
         
         // Calcular promedios
-        uint16_t raw_x = (uint16_t)(sum_x / ADC_SAMPLES);
-        uint16_t raw_y = (uint16_t)(sum_y / ADC_SAMPLES);
+        uint16_t raw_x = (uint16_t)(sum_x / MUESTRAS_PROMEDIO);
+        uint16_t raw_y = (uint16_t)(sum_y / MUESTRAS_PROMEDIO);
         
         /* Filtro adicional: promedio móvil con valor anterior (suavizado) */
         raw_x = (prev_ejeX + raw_x) / 2;
@@ -219,15 +219,15 @@ void joystick_update(void) {
         prev_ejeY = raw_y;
         
         /* Aplicar zona muerta (deadzone) AMPLIADA para filtrar ruido del ADC
-           Si el valor está dentro de ±DEADZONE del centro, forzar a centro */
-        if (raw_x > (ADC_CENTER - ADC_DEADZONE) && raw_x < (ADC_CENTER + ADC_DEADZONE)) {
-            ejeX = ADC_CENTER;  // Forzar a centro (sin ruido)
+           Si el valor está dentro de ±ZONA_MUERTA_ADC del centro, forzar a centro */
+        if (raw_x > (CENTRO_ADC - ZONA_MUERTA_ADC) && raw_x < (CENTRO_ADC + ZONA_MUERTA_ADC)) {
+            ejeX = CENTRO_ADC;  // Forzar a centro (sin ruido)
         } else {
             ejeX = raw_x;  // Usar valor real
         }
         
-        if (raw_y > (ADC_CENTER - ADC_DEADZONE) && raw_y < (ADC_CENTER + ADC_DEADZONE)) {
-            ejeY = ADC_CENTER;  // Forzar a centro (sin ruido)
+        if (raw_y > (CENTRO_ADC - ZONA_MUERTA_ADC) && raw_y < (CENTRO_ADC + ZONA_MUERTA_ADC)) {
+            ejeY = CENTRO_ADC;  // Forzar a centro (sin ruido)
         } else {
             ejeY = raw_y;  // Usar valor real
         }
@@ -267,10 +267,17 @@ uint8_t joystick_boton_presionado(void) {
  * de EINT3_IRQHandler en el proyecto. En ese caso, integrar el código dentro
  * de la función existente.
  */
+/**
+ * @brief Ejecuta un reset por software del chip
+ * Reinicia el microcontrolador
+ */
+void joystick_hacer_reset(void) {
+    NVIC_SystemReset();  // Reset por software
+}
+
 void EINT3_IRQHandler(void) {
-    // Verificar si la interrupción proviene de P2.10 (botón del joystick)
-    if (LPC_GPIOINT->IO2IntStatF & (1 << SW_PIN)) {
-        boton_presionado = !boton_presionado; // Alternar estado
-        LPC_GPIOINT->IO2IntClr = (1 << SW_PIN);// Limpiar bandera
+    if (LPC_GPIOINT->IO2IntStatF & (1 << PIN_BOTON)) {
+        joystick_hacer_reset();  // Ejecuta reset del chip
+        LPC_GPIOINT->IO2IntClr = (1 << PIN_BOTON);
     }
 }

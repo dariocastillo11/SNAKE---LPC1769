@@ -36,20 +36,24 @@ int main(void) {
     SystemInit();    // Inicializa el sistema y los relojes
     cfgPin();        // Configura los pines
     cfgI2c();        // Inicializa el periférico I2C
-    bt_init();       // Inicializa Bluetooth UART0 (P0.2 TX, P0.3 RX, 9600 bps)
-    melodias_init(); // Inicializa sistema de melodías (DAC + Timer0/Timer1)
-    joystick_init(); // Inicializa joystick ADC y LEDs indicadores
-    lcd_init();      // Inicializa el LCD
+    joystick_inicializar(); // Inicializa joystick ADC y LEDs indicadores PRIMERO (antes de DMA)
+    bt_inicializar();       // Inicializa Bluetooth UART0 (P0.2 TX, P0.3 RX, 9600 bps) + DMA
+    melodias_inicializar(); // Inicializa sistema de melodías (DAC + Timer0/Timer1 + DMA)
+    lcd_inicializar();      // Inicializa el LCD
+    
+    // Re-habilitar ADC después de que DMA haya sido inicializado
+    // GPDMA_Init() puede haber alterado registros del ADC
+    LPC_SC->PCONP |= (1 << 12);  // Asegurar que PCADC está habilitado
 
     /* Enviar mensaje de bienvenida por Bluetooth */
-    bt_write_str("\r\n=== DINOCHROME ARCADE ===\r\n");
-    bt_write_str("Comandos: W(arriba) S(abajo) A(izq) D(der) B(boton)\r\n");
-    bt_write_str("Conectado!\r\n\r\n");
+    bt_escribir_cadena("\r\n=== DINOCHROME ARCADE ===\r\n");
+    bt_escribir_cadena("Comandos: W(arriba) S(abajo) A(izq) D(der) B(boton)\r\n");
+    bt_escribir_cadena("¡Conectado!\r\n\r\n");
 
     lcd_borrarPantalla();
     
     // Inicializar el menú de selección
-    menu_init();
+    menu_inicializar();
     
     // Estado del sistema
     int8_t juego_actual = -1;  // -1 = en menú, 0 = Dino, 1 = Snake
@@ -74,7 +78,7 @@ int main(void) {
         
         if (juego_actual == -1) {
             /* === MODO MENÚ === */
-            int8_t seleccion = menu_run();
+            int8_t seleccion = menu_ejecutar();
             
             if (seleccion >= 0) {
                 // Usuario seleccionó un juego
@@ -87,36 +91,36 @@ int main(void) {
             // Inicializar juego si es necesario
             if (!juego_inicializado) {
                 if (juego_actual == 0) {
-                    dino_game_init();
+                    juego_dinosaurio_inicializar();
                 } else if (juego_actual == 1) {
-                    snake_game_init();
+                    juego_serpiente_inicializar();
                 }
                 juego_inicializado = 1;
             }
             
             // Ejecutar juego activo
             if (juego_actual == 0) {
-                dino_game_run();
+                juego_dinosaurio_ejecutar();
                 
                 // Si Dino terminó y usuario presionó botón, volver al menú
-                if (dino_game_is_over() == 2) {
+                if (juego_dinosaurio_ha_terminado() == 2) {
                     lcd_borrarPantalla();     // Primero borrar la pantalla
-                    dino_game_restart();      // Reiniciar juego para próxima partida
+                    juego_dinosaurio_reiniciar();      // Reiniciar juego para próxima partida
                     juego_actual = -1;        // Volver al menú
                     juego_inicializado = 0;   // Marcar para re-inicializar
-                    menu_reset();             // Dibujar menú (DESPUÉS de borrar)
+                    menu_reiniciar();             // Dibujar menú (DESPUÉS de borrar)
                 }
                 
             } else if (juego_actual == 1) {
-                snake_game_run();
+                juego_serpiente_ejecutar();
                 
                 // Si Snake terminó y usuario presionó botón, volver al menú
-                if (snake_game_is_over() == 2) {
+                if (juego_serpiente_ha_terminado() == 2) {
                     lcd_borrarPantalla();     // Primero borrar la pantalla
-                    snake_game_restart();     // Reiniciar juego para próxima partida
+                    juego_serpiente_reiniciar();     // Reiniciar juego para próxima partida
                     juego_actual = -1;        // Volver al menú
                     juego_inicializado = 0;   // Marcar para re-inicializar
-                    menu_reset();             // Dibujar menú (DESPUÉS de borrar)
+                    menu_reiniciar();             // Dibujar menú (DESPUÉS de borrar)
                 }
             }
         }
@@ -124,8 +128,11 @@ int main(void) {
         /* Actualizar sistema de melodías (no bloqueante) */
         melodias_actualizar();
 
+        /* Actualizar buffer Bluetooth (lectura UART polling) */
+        bt_actualizar_buffer();
+
         /* Actualizar joystick y LEDs indicadores (no bloqueante) */
-        joystick_update();
+        joystick_actualizar();
     }
 }
 

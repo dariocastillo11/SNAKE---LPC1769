@@ -8,7 +8,7 @@
 - **TX del HC-05** → **P0.3 (RXD0)** del LPC1769
 - **RX del HC-05** → **P0.2 (TXD0)** del LPC1769
 
-⚠️ **IMPORTANTE**: Si tu módulo HC-05 es de 3.3V, conecta RX directamente. Si es de 5V, usa un divisor de tensión (resistencias 1kΩ y 2kΩ) en la línea RX del HC-05.
+
 
 ### Parámetros UART0
 - **Baudrate**: 9600 bps
@@ -97,73 +97,7 @@ CMD: RIGHT
 CMD: BUTTON
 ```
 
-### Solución de Problemas
-
-**Problema**: No recibo mensajes del LPC1769
-- ✅ Verificar baudrate (debe ser 9600)
-- ✅ Verificar cruce de cables (TX→RX, RX→TX)
-- ✅ Verificar emparejamiento del HC-05
-
-**Problema**: Los comandos no funcionan
-- ✅ Verificar que envías caracteres individuales (W, A, S, D, B)
-- ✅ Los comandos son case-insensitive (W = w)
-- ✅ No enviar terminadores de línea (\r\n) con cada comando
-
-**Problema**: El joystick físico no funciona
-- ✅ Si hay comandos Bluetooth activos, estos tienen prioridad
-- ✅ Espera ~250ms sin comandos BT para volver al joystick
-- ✅ Envía comando neutral para forzar modo joystick
-
-**Problema**: LEDs no responden a comandos BT
-- ✅ Los LEDs muestran la dirección combinada (BT o joystick)
-- ✅ Verifica que `joystick_update()` se llama periódicamente
-
 ---
-
-## 💻 Implementación Técnica
-
-### Arquitectura
-```
-main.c
-  ├─ bt_init() ────────────► Configura UART0 (P0.2/P0.3)
-  │
-  └─ Loop principal
-      ├─ joystick_update() ──► joystick_adc.c
-      │   ├─ bt_process_commands() ────► bluetooth_uart.c
-      │   │   └─ Lee UART0 y actualiza valores simulados
-      │   │
-      │   ├─ Si BT activo: usar valores simulados
-      │   └─ Si BT inactivo: leer ADC físico
-      │
-      ├─ menu_run() ─────────► menu_juegos.c
-      │   └─ leer_boton_p04() ────► Botón físico OR BT
-      │
-      ├─ dino_game_run() ────► dino_game.c
-      │   └─ read_button() ───────► Botón físico OR BT
-      │
-      └─ snake_game_run() ───► snake_game.c
-          └─ leer_boton_p04() ────► Botón físico OR BT
-```
-
-### Módulos Modificados
-1. **bluetooth_uart.c** (NUEVO)
-   - Configura UART0 a 9600 bps
-   - Procesa comandos W/A/S/D/B
-   - Genera valores ADC simulados (100, 2048, 3900)
-
-2. **joystick_adc.c** (MODIFICADO)
-   - Llama `bt_process_commands()` en cada update
-   - Prioriza valores BT sobre lecturas físicas
-   - Transparente para los juegos
-
-3. **dino_game.c** (MODIFICADO)
-   - `read_button()` combina P0.4 físico + comando 'B'
-
-4. **snake_game.c** (MODIFICADO)
-   - `leer_boton_p04()` combina P0.4 físico + comando 'B'
-
-5. **menu_juegos.c** (MODIFICADO)
-   - `leer_boton_p04()` combina P0.4 físico + comando 'B'
 
 ---
 
@@ -204,27 +138,7 @@ En `bluetooth_uart.c`, función `bt_process_commands()`:
 command_duration = 5;  // Aumentar para comandos más largos
 ```
 
-### Agregar Nuevos Comandos
-En `bluetooth_uart.c`:
-```c
-case 'P': case 'p':  // Nuevo comando
-    // Tu código aquí
-    bt_write_str("CMD: CUSTOM\r\n");
-    break;
-```
 
 ---
 
-## 📝 Notas Finales
 
-✅ **Compatible** con joystick físico (ambos funcionan simultáneamente)  
-✅ **No usa interrupciones** UART (polling en main loop)  
-✅ **Bajo overhead** (~5% del tiempo de CPU)  
-✅ **Feedback visual** por LEDs y confirmación por terminal  
-✅ **Plug & Play** - solo conectar HC-05 y emparejar  
-
-⚠️ **No reconfigurar P0.2/P0.3** en otros módulos (están dedicados a UART0)
-
----
-
-**¡Disfruta tu control dual Joystick + Bluetooth!** 🎮📱

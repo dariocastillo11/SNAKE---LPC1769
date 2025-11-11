@@ -1,7 +1,7 @@
 /**
  * @file melodias_dac.c
- * @brief Implementación del sistema de reproducción de melodías con DAC
- * @details Genera señales triangulares usando el DAC y Timer0 para reproducir
+ * @brief Implementación del sistema de reproducción de melodías con DAC + DMA
+ * @details Genera señales triangulares usando el DAC con DMA y Timer0 para reproducir
  *          melodías musicales en segundo plano sin bloquear el programa.
  *
  * @date Noviembre 2025
@@ -13,26 +13,34 @@
 #include "lpc17xx_gpio.h"
 #include "lpc17xx_pinsel.h"
 #include "lpc17xx_dac.h"
+#include "lpc17xx_gpdma.h"
 #include "dino_game.h"
+
 /* ==================== CONFIGURACIÓN INTERNA =============================== */
 
-#define NUMERO_MUESTRAS            64
+#define NUMERO_MUESTRAS            16    // Doble de rápido (16 muestras)
 #define MAXIMO_VALOR_DAC           1023
 #define MICROSEGUNDOS_POR_SEGUNDO  1000000
 #define PAUSA_ARTICULACION_MS      30
-#define LED_TOGGLE_INTERRUPCIONES  500
+#define LED_ALTERNAR_INTERRUPCIONES  500
 
 #define PORT_CERO                  0
 #define PIN_22                     ((uint32_t)(1<<22))
 
+/* === CONFIGURACIÓN DMA === */
+#define MELODIAS_DMA_CH       1  // Canal DMA 1
+#define MELODIAS_CONEXION_DMA    GPDMA_DAC
+
 /* ========================== TABLA DE ONDA ================================= */
 
 const uint16_t TABLA_TRIANGULAR[NUMERO_MUESTRAS] = {
-    0,    32,   64,   96,   128,  160,  192,  224,  256,  288,  320,  352,  384,  416,  448,  480,
-    512,  544,  576,  608,  640,  672,  704,  736,  768,  800,  832,  864,  896,  928,  960,  992,
-    1023, 992,  960,  928,  896,  864,  832,  800,  768,  736,  704,  672,  640,  608,  576,  544,
-    512,  480,  448,  416,  384,  352,  320,  288,  256,  224,  192,  160,  128,  96,   64,   32
+    0,    128,  256,  384,  512,  640,  768,  896,
+    1023, 896,  768,  640,  512,  384,  256,  128
 };
+
+/* === VARIABLES DMA === */
+static volatile uint8_t dma_melodias_enabled = 0;  // Flag de DMA activo
+static volatile uint16_t dma_melodias_index = 0;   // Índice para LLI
 
 /* ============================= MELODÍAS =================================== */
 
@@ -130,10 +138,77 @@ static const Nota *melodia_fondo_guardada = NULL;  // Melodía de fondo pausada
 static volatile uint16_t indice_fondo_guardado = 0;
 static volatile uint32_t tiempo_fondo_guardado = 0;
 
-/* ==================== MANEJADOR DE INTERRUPCIONES ========================= */
+/* Forward declaration for static function */
+static void melodias_dma_restart_transfer(void);
 
 /**
- * @brief ISR del Timer0 - Generación de audio
+ * @brief Callback de DMA para Melodías - llamado desde dma_handlers.c
+ * 
+ * Se dispara cuando una transferencia DMA completa (terminal count).
+ * Reinicia la transferencia para la siguiente muestra.
+ */
+void melodias_dma_on_transfer_complete(void) {
+    if (reproduciendo && frecuencia_actual > 0) {
+        dma_melodias_index = (dma_melodias_index + 1) % NUMERO_MUESTRAS;
+        melodias_dma_restart_transfer();
+    }
+}
+
+/**
+ * @brief Inicializa el controlador GPDMA para melodías
+ */
+static void melodias_dma_init(void) {
+    GPDMA_Init();
+    NVIC_EnableIRQ(DMA_IRQn);
+    NVIC_SetPriority(DMA_IRQn, 1);
+}
+
+/**
+ * @brief Configura y lanza la primera transferencia DMA para DAC
+ */
+static void melodias_dma_start_transfer(void) {
+    GPDMA_Channel_CFG_Type dma_cfg;
+    
+    dma_cfg.channelNum = MELODIAS_DMA_CH;
+    dma_cfg.transferSize = 1;                              // 1 muestra por transferencia
+    dma_cfg.transferWidth = GPDMA_HALFWORD;                // 16 bits (uint16_t)
+    dma_cfg.srcMemAddr = (uint32_t)&TABLA_TRIANGULAR[0];  // Fuente: tabla en RAM
+    dma_cfg.dstMemAddr = 0;                                // No aplica (destino es DAC)
+    dma_cfg.transferType = GPDMA_M2P;                      // Memoria a Periférico
+    dma_cfg.srcConn = 0;                                   // No aplica
+    dma_cfg.dstConn = MELODIAS_CONEXION_DMA;             // GPDMA_DAC
+    dma_cfg.linkedList = 0;                                // Sin linked list
+    
+    GPDMA_Setup(&dma_cfg);
+    GPDMA_ChannelCmd(MELODIAS_DMA_CH, ENABLE);
+    
+    dma_melodias_enabled = 1;
+}
+
+/**
+ * @brief Reinicia la transferencia DMA (llamada desde ISR DMA)
+ */
+static void melodias_dma_restart_transfer(void) {
+    GPDMA_ChannelCmd(MELODIAS_DMA_CH, DISABLE);
+    
+    GPDMA_Channel_CFG_Type dma_cfg;
+    
+    dma_cfg.channelNum = MELODIAS_DMA_CH;
+    dma_cfg.transferSize = 1;
+    dma_cfg.transferWidth = GPDMA_HALFWORD;
+    dma_cfg.srcMemAddr = (uint32_t)&TABLA_TRIANGULAR[dma_melodias_index];
+    dma_cfg.dstMemAddr = 0;
+    dma_cfg.transferType = GPDMA_M2P;
+    dma_cfg.srcConn = 0;
+    dma_cfg.dstConn = MELODIAS_CONEXION_DMA;
+    dma_cfg.linkedList = 0;
+    
+    GPDMA_Setup(&dma_cfg);
+    GPDMA_ChannelCmd(MELODIAS_DMA_CH, ENABLE);
+}
+
+/**
+ * @brief ISR del Timer0 - Generación de audio con DMA
  * Match 0: Genera la forma de onda triangular punto por punto
  */
 void TIMER0_IRQHandler(void) {
@@ -161,7 +236,7 @@ void TIMER0_IRQHandler(void) {
         // LED indicador de actividad
         static uint16_t led_counter = 0;
         led_counter++;
-        if(led_counter >= LED_TOGGLE_INTERRUPCIONES) {
+        if(led_counter >= LED_ALTERNAR_INTERRUPCIONES) {
             led_counter = 0;
             if(GPIO_ReadValue(PORT_CERO) & PIN_22) {
                 GPIO_ClearPins(PORT_CERO, PIN_22);
@@ -193,6 +268,7 @@ static void set_frecuencia(uint16_t frecuencia_hz) {
         DAC_UpdateValue(0);
         frecuencia_actual = 0;
         indice_tabla_onda = 0;
+        dma_melodias_index = 0;
         return;
     }
 
@@ -203,8 +279,8 @@ static void set_frecuencia(uint16_t frecuencia_hz) {
     uint32_t periodo_completo_us = MICROSEGUNDOS_POR_SEGUNDO / frecuencia_hz;
     uint32_t tiempo_entre_muestras_us = periodo_completo_us / NUMERO_MUESTRAS;
 
-    if (tiempo_entre_muestras_us < 10) {
-        tiempo_entre_muestras_us = 10;
+    if (tiempo_entre_muestras_us < 5) {
+        tiempo_entre_muestras_us = 5;  // Reducido de 10 para más velocidad
     }
 
     TIM_Cmd(LPC_TIM0, DISABLE);
@@ -212,8 +288,14 @@ static void set_frecuencia(uint16_t frecuencia_hz) {
     TIM_UpdateMatchValue(LPC_TIM0, TIM_MATCH_CHANNEL_0, tiempo_entre_muestras_us);
 
     indice_tabla_onda = 0;
+    dma_melodias_index = 0;
     frecuencia_actual = frecuencia_hz;
     reproduciendo = 1;
+    
+    /* Iniciar DMA si no está activo */
+    if (!dma_melodias_enabled) {
+        melodias_dma_start_transfer();
+    }
 
     TIM_Cmd(LPC_TIM0, ENABLE);
 }
@@ -296,10 +378,11 @@ static void config_timer(void) {
 
 /* ==================== FUNCIONES PÚBLICAS ================================== */
 
-void melodias_init(void) {
+void melodias_inicializar(void) {
     config_gpio();
     config_dac();
     config_timer();
+    melodias_dma_init();  /* Inicializar DMA */
     GPIO_SetPins(PORT_CERO, PIN_22);
 }
 
@@ -398,7 +481,7 @@ uint32_t melodias_obtener_tiempo_ms(void) {
     return tiempo_transcurrido_ms;
 }
 
-void melodias_set_volumen(uint8_t volumen) {
-    if (volumen > 100) volumen = 100;
-    volumen_porcentaje = volumen;
+void melodias_establecer_volumen(uint8_t volumen_porcentaje) {
+    if (volumen_porcentaje > 100) volumen_porcentaje = 100;
+    volumen_porcentaje = volumen_porcentaje;
 }

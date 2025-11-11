@@ -103,7 +103,7 @@ extern const Nota melodia_fondo[];      // Melodía de fondo larga (tipo Mario B
  * @note Debe llamarse una vez al inicio del programa, antes de usar melodías
  * @note Configura P0.26 como AOUT y P0.22 como GPIO para LED
  */
-void melodias_init(void);
+void melodias_inicializar(void);
 
 /**
  * @brief Inicia la reproducción de una melodía de forma no bloqueante
@@ -150,9 +150,9 @@ uint32_t melodias_obtener_tiempo_ms(void);
 
 /**
  * @brief Configura el volumen relativo del DAC (0-100)
- * @param volumen Porcentaje de volumen (0 = silencio, 100 = máximo)
+ * @param volumen_porcentaje Porcentaje de volumen (0 = silencio, 100 = máximo)
  * @note Afecta la amplitud de la onda generada
  */
-void melodias_set_volumen(uint8_t volumen);
+void melodias_establecer_volumen(uint8_t volumen_porcentaje);
 
 #endif /* MELODIAS_DAC_H */

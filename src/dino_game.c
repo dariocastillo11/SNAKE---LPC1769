@@ -36,72 +36,72 @@
 /* ========================== CONFIGURACIÓN ================================= */
 
 /* Pin del botón de salto */
-#define DINO_BUTTON_PORT 0
-#define DINO_BUTTON_PIN  4
+#define PUERTO_BOTON_DINO 0
+#define PIN_BOTON_DINO  4
 
 /* Dimensiones del área de juego en caracteres LCD (20x4) */
-#define DINO_COLS 20          // Ancho del LCD en caracteres
-#define DINO_ROW_GROUND 3     // Fila inferior (0=marcadores, 1-3=juego)
+#define COLUMNAS_DINO 20          // Ancho del LCD en caracteres
+#define FILA_SUELO_DINO 3     // Fila inferior (0=marcadores, 1-3=juego)
 
 /* Dimensiones del sprite del dinosaurio */
-#define DINO_WIDTH 1          // Ancho en caracteres (optimizado)
-#define DINO_HEIGHT 2         // Alto en caracteres (2 filas)
+#define ANCHO_DINO 1          // Ancho en caracteres (optimizado)
+#define ALTO_DINO 2         // Alto en caracteres (2 filas)
 
 /* Configuración de timing del juego */
-#define TICKS_PER_SEC 20      // Frecuencia de actualización (20 Hz)
+#define TICKS_POR_SEGUNDO 20      // Frecuencia de actualización (20 Hz)
 #define TICK_MS 50            // Período de tick (50ms = 1000ms/20)
 
 /* Configuración de dificultad del juego */
-#define INIT_MOVE_INTERVAL 6       // Intervalo inicial entre movimientos (ticks)
-#define MIN_MOVE_INTERVAL 2        // Intervalo mínimo (velocidad máxima)
-#define BASE_SPAWN_THRESHOLD 40    // Umbral inicial de spawn de obstáculos (0-255)
-#define MAX_SPAWN_THRESHOLD 80     // Umbral máximo de spawn
+#define INTERVALO_MOVIMIENTO_INICIAL 2       // Intervalo inicial entre movimientos (ticks) - MUY rápido
+#define INTERVALO_MOVIMIENTO_MINIMO 1        // Intervalo mínimo (velocidad máxima)
+#define UMBRAL_SPAWN_BASE 40    // Umbral inicial de spawn de obstáculos (0-255)
+#define UMBRAL_SPAWN_MAXIMO 80     // Umbral máximo de spawn
 
 /* ========================== VARIABLES DE ESTADO ========================== */
 
 /* Flag de tick del timer (seteado por TIMER2_IRQHandler cada 50ms) */
-static volatile uint8_t game_tick_flag = 0;
+static volatile uint8_t bandera_tick_juego = 0;
 
 /* Array de obstáculos (0 = vacío, 1-3 = tamaño del obstáculo) */
-static uint8_t obstacles[DINO_COLS];
+static uint8_t obstaculos[COLUMNAS_DINO];
 
 /* Posición del dinosaurio */
-static uint8_t dino_col = 2;          /* Columna fija del dinosaurio */
-static int8_t dino_vpos = 0;          /* Posición vertical (0=suelo, >0=aire) */
-static int8_t dino_velocity = 0;      /* Velocidad vertical (sin usar actualmente) */
+static uint8_t columna_dino = 2;          /* Columna fija del dinosaurio */
+static int8_t posicion_vertical_dino = 0;          /* Posición vertical (0=suelo, >0=aire) */
+static int8_t velocidad_dino = 0;      /* Velocidad vertical (sin usar actualmente) */
 
 /* Generación de obstáculos */
-static uint8_t spawn_counter = 0;
-static uint32_t prng = 0xACE1u;       /* Semilla para PRNG (LFSR de 16 bits) */
-static uint8_t last_obstacle_pos = 0; /* Posición del último obstáculo generado */
+static uint8_t contador_spawn = 0;
+static uint32_t semilla_rng = 0xACE1u;       /* Semilla para PRNG (LFSR de 16 bits) */
+static uint8_t posicion_ultimo_obstaculo = 0; /* Posición del último obstáculo generado */
 
 /* Estado del juego */
-static uint8_t game_over = 0;         /* 1 = juego terminado */
-static uint8_t game_started = 0;      /* 1 = juego iniciado por el usuario */
-static uint32_t score = 0;            /* Puntuación actual */
-static uint32_t ticks_since_start = 0; /* Ticks desde inicio del juego */
+static uint8_t juego_terminado = 0;         /* 1 = juego terminado */
+static uint8_t juego_iniciado = 0;      /* 1 = juego iniciado por el usuario */
+static uint32_t puntuacion = 0;            /* Puntuación actual */
+static uint32_t ticks_desde_inicio = 0; /* Ticks desde inicio del juego */
 
 /* Control del botón */
-static uint8_t button_held = 0;       /* 1 = botón presionado */
-static uint8_t last_button_state = 0; /* Estado anterior del botón (0=no presionado, activo BAJO) */
-static uint8_t debounce_cnt = 0;      /* Contador de debounce */
-static uint8_t jump_requested = 0;    /* 1 = salto pendiente */
-static uint8_t last_held = 0;         /* Último estado confirmado de button_held (para edge detection) */
+static uint8_t boton_presionado = 0;       /* 1 = botón presionado */
+static uint8_t estado_boton_anterior = 0; /* Estado anterior del botón (0=no presionado, activo BAJO) */
+static uint8_t contador_debounce = 0;      /* Contador de debounce */
+static uint8_t salto_solicitado = 0;    /* 1 = salto pendiente */
+static uint8_t ultimo_estado_confirma = 0;         /* Último estado confirmado de boton_presionado (para edge detection) */
 
 /* Ajuste dinámico de dificultad */
-static uint8_t move_interval = INIT_MOVE_INTERVAL; /* Ticks entre movimientos */
-static uint8_t move_counter = 0;                    /* Contador para move_interval */
-static uint8_t spawn_threshold = BASE_SPAWN_THRESHOLD; /* Umbral de spawn (0-255) */
+static uint8_t intervalo_movimiento = INTERVALO_MOVIMIENTO_INICIAL; /* Ticks entre movimientos */
+static uint8_t contador_movimiento = 0;                    /* Contador para intervalo_movimiento */
+static uint8_t umbral_spawn = UMBRAL_SPAWN_BASE; /* Umbral de spawn (0-255) */
 
 /* Animación del dinosaurio */
-static int current_frame = 0;        /* Frame actual de animación (0 o 1) */
-static int animation_counter = 0;    /* Contador para velocidad de animación */
+static int frame_actual = 0;        /* Frame actual de animación (0 o 1) */
+static int contador_animacion = 0;    /* Contador para velocidad de animación */
 
 /* ========================== DECLARACIONES FORWARD ======================== */
 
-static void update_dino_animation(void);
-static void draw_score_display(void);
-static void draw_game_screen(void);
+static void actualizar_animacion_dino(void);
+static void dibujar_marcadores(void);
+static void dibujar_pantalla_juego(void);
 
 /* ========================== SPRITES Y ANIMACIÓN ========================== */
 
@@ -141,16 +141,16 @@ static const char walking_frames[2][2][2] = {
  *
  * @return 1 si está presionado (físico o Bluetooth), 0 si no
  */
-static int read_button(void) {
+static int leer_boton(void) {
     /* Leer botón físico P0.4 */
-    int physical = (LPC_GPIO0->FIOPIN & (1u << DINO_BUTTON_PIN)) ? 0 : 1;
+    int physical = (LPC_GPIO0->FIOPIN & (1u << PIN_BOTON_DINO)) ? 0 : 1;
     
     /* Leer comando Bluetooth */
-    int bt_button = bt_get_button_command();
+    int bt_button = bt_obtener_comando_boton();
     
     /* Si cualquiera está presionado, retornar 1 */
     if (bt_button) {
-        bt_clear_button_command();  // Limpiar después de leer
+        bt_limpiar_comando_boton();  // Limpiar después de leer
         return 1;
     }
     
@@ -165,12 +165,12 @@ static int read_button(void) {
  *
  * @return Número pseudo-aleatorio de 16 bits
  */
-static uint16_t lfsr16(void) {
-    uint16_t l = (uint16_t)prng;
+static uint16_t generar_aleatorio_lfsr16(void) {
+    uint16_t l = (uint16_t)semilla_rng;
     uint16_t lsb = l & 1u;
     l >>= 1;
     if (lsb) l ^= 0xB400u;
-    prng = l;
+    semilla_rng = l;
     return l;
 }
 
@@ -183,52 +183,52 @@ static uint16_t lfsr16(void) {
  *
  * Optimizado para evitar parpadeo usando dibujo directo sin borrado previo.
  */
-static void draw_game_screen(void) {
+static void dibujar_pantalla_juego(void) {
     /* Calcular altura del salto del dinosaurio
        Altura ajustada dinámicamente según la duración del salto actual
        y la velocidad de caída */
     int height = 0;
 
     /* Umbrales más conservadores para evitar parpadeos */
-    if (dino_vpos >= 10) {
+    if (posicion_vertical_dino >= 10) {
         height = 2;      /* muy alto */
-    } else if (dino_vpos >= 5) {
+    } else if (posicion_vertical_dino >= 5) {
         height = 1;      /* medio */
     } else {
         height = 0;      /* en el suelo */
     }
 
-    int dino_bottom_row = DINO_ROW_GROUND - height;
+    int fila_inferior_dino = FILA_SUELO_DINO - height;
 
     /* Dibujar fila por fila (filas 1-3, la 0 es para marcadores) */
-    for (int row = 1; row <= DINO_ROW_GROUND; row++) {
-        lcd_setCursor(row, 0);
+    for (int row = 1; row <= FILA_SUELO_DINO; row++) {
+        lcd_establecer_cursor(row, 0);
 
-        for (int col = 0; col < DINO_COLS; col++) {
+        for (int col = 0; col < COLUMNAS_DINO; col++) {
             char ch = ' '; /* por defecto vacío */
 
             /* ¿Hay dinosaurio en esta posición? (ahora solo 1 columna) */
-            if (col == dino_col) {
+            if (col == columna_dino) {
                 /* Verificar si el dino ocupa esta fila */
-                if (row >= dino_bottom_row - 1 && row <= dino_bottom_row) {
+                if (row >= fila_inferior_dino - 1 && row <= fila_inferior_dino) {
                     /* Índice de fila relativo al sprite (0=arriba, 1=abajo) */
-                    int sprite_row = row - (dino_bottom_row - 1);
+                    int sprite_row = row - (fila_inferior_dino - 1);
                     /* Solo usamos la primera columna del frame (índice 0) */
-                    ch = walking_frames[current_frame][0][sprite_row];
+                    ch = walking_frames[frame_actual][0][sprite_row];
                 }
             }
 
             /* Si no hay dino, verificar obstáculo en fila inferior
                Los obstáculos ahora pueden ser múltiples '#' consecutivos */
-            if (ch == ' ' && row == DINO_ROW_GROUND) {
+            if (ch == ' ' && row == FILA_SUELO_DINO) {
                 /* Verificar si esta columna tiene obstáculo */
-                if (obstacles[col] > 0) {
+                if (obstaculos[col] > 0) {
                     ch = '#';
                 } else {
                     /* Verificar si es parte de un obstáculo que empezó antes */
                     for (int back = 1; back < 3; back++) {
                         int check_col = col - back;
-                        if (check_col >= 0 && obstacles[check_col] > back) {
+                        if (check_col >= 0 && obstaculos[check_col] > back) {
                             ch = '#';
                             break;
                         }
@@ -236,7 +236,7 @@ static void draw_game_screen(void) {
                 }
             }
 
-            lcd_writeDataByte(ch);
+            lcd_escribir_byte(ch);
         }
     }
 }
@@ -245,17 +245,17 @@ static void draw_game_screen(void) {
  * @brief Comprueba si hay colisión entre el dinosaurio y un obstáculo.
  *
  * Detecta colisión cuando:
- * 1. El dinosaurio está cerca del suelo (dino_vpos bajo)
+ * 1. El dinosaurio está cerca del suelo (posicion_vertical_dino bajo)
  * 2. Hay un obstáculo en la columna del dinosaurio
  *
  * El umbral de altura segura se ajusta dinámicamente según la velocidad
  * del juego para evitar falsas colisiones durante saltos rápidos.
  *
  * Si detecta colisión:
- * - Setea game_over = 1
+ * - Setea juego_terminado = 1
  * - Reproduce melodía de game over
  */
-static void check_collision(void) {
+static void verificar_colision(void) {
     /* Colisión solo cuando el dinosaurio está en el suelo (no saltando)
        y hay un obstáculo en su columna (ahora solo ocupa 1 columna). */
 
@@ -263,15 +263,15 @@ static void check_collision(void) {
        - Velocidad lenta: necesita estar muy bajo (> 4)
        - Velocidad rápida: puede estar un poco más alto (> 2)
        Esto evita colisiones falsas cuando acelera */
-    int safe_height = 2 + (move_interval / 2); /* 2 a 5 según velocidad */
+    int altura_segura = 2 + (intervalo_movimiento / 2); /* 2 a 5 según velocidad */
 
-    if (dino_vpos > safe_height) {
+    if (posicion_vertical_dino > altura_segura) {
         return; /* saltó sobre el obstáculo */
     }
 
     /* Verificar si hay obstáculo en la columna del dinosaurio */
-    if (obstacles[dino_col]) {
-        game_over = 1;
+    if (obstaculos[columna_dino]) {
+        juego_terminado = 1;
         /* Detener música de fondo antes de reproducir melodía de game over */
         melodias_detener();
         melodias_iniciar(melodia_game_over);
@@ -289,27 +289,27 @@ static void check_collision(void) {
  * - Parámetros de dificultad (velocidad y spawn rate)
  * - Estado de animación
  */
-void dino_game_restart(void) {
-    memset(obstacles, 0, sizeof(obstacles));
-    dino_vpos = 0;
-    dino_velocity = 0;
-    button_held = 0;
-    jump_requested = 0;
-    last_button_state = 0;  // 0 = no presionado (activo BAJO)
-    debounce_cnt = 0;
-    spawn_counter = 0;
-    game_over = 0;
-    game_started = 0;  // Resetear para que pida "presiona para jugar" nuevamente
-    score = 0;
-    ticks_since_start = 0;
-    current_frame = 0;
-    animation_counter = 0;
-    move_interval = INIT_MOVE_INTERVAL;
-    move_counter = 0;
-    spawn_threshold = BASE_SPAWN_THRESHOLD;
-    last_obstacle_pos = 0;
+void juego_dinosaurio_reiniciar(void) {
+    memset(obstaculos, 0, sizeof(obstaculos));
+    posicion_vertical_dino = 0;
+    velocidad_dino = 0;
+    boton_presionado = 0;
+    salto_solicitado = 0;
+    estado_boton_anterior = 0;  // 0 = no presionado (activo BAJO)
+    contador_debounce = 0;
+    contador_spawn = 0;
+    juego_terminado = 0;
+    juego_iniciado = 0;  // Resetear para que pida "presiona para jugar" nuevamente
+    puntuacion = 0;
+    ticks_desde_inicio = 0;
+    frame_actual = 0;
+    contador_animacion = 0;
+    intervalo_movimiento = INTERVALO_MOVIMIENTO_INICIAL;
+    contador_movimiento = 0;
+    umbral_spawn = UMBRAL_SPAWN_BASE;
+    posicion_ultimo_obstaculo = 0;
     /* Asegurar que la detección de flancos reinicie correctamente */
-    last_held = 0;
+    ultimo_estado_confirma = 0;
 }
 
 /**
@@ -317,95 +317,95 @@ void dino_game_restart(void) {
  *
  * Procesamiento en orden:
  * 1. Actualiza física del salto (caída gravitacional)
- * 2. Mueve obstáculos hacia la izquierda según move_interval
+ * 2. Mueve obstáculos hacia la izquierda según intervalo_movimiento
  * 3. Genera nuevos obstáculos aleatoriamente (tamaño 1-3 caracteres)
  * 4. Ajusta dificultad dinámicamente (velocidad y spawn rate)
  * 5. Detecta colisiones
  * 6. Actualiza puntuación al pasar obstáculos
  *
- * La velocidad de caída se adapta a move_interval para mantener
+ * La velocidad de caída se adapta a intervalo_movimiento para mantener
  * jugabilidad consistente a diferentes velocidades de juego.
  */
-static void game_tick_update(void) {
-    if (game_over) return;
+static void actualizar_tick_juego(void) {
+    if (juego_terminado) return;
 
     /* Contador global de ticks (para ajustar dificultad con el tiempo) */
-    ticks_since_start++;
+    ticks_desde_inicio++;
 
     /* Manejo de salto con velocidad adaptativa:
        - A velocidad lenta: cae 1 tick por frame (suave)
        - A velocidad rápida: cae 2 ticks por frame (rápido)
        Esto hace que la caída sea proporcional a la velocidad del juego */
-    if (dino_vpos > 0) {
-        /* Calcular velocidad de caída según move_interval:
-           - move_interval 6 (lento): decrement = 1
-           - move_interval 4 (medio): decrement = 1
-           - move_interval 2 (rápido): decrement = 2 */
-        int fall_speed = (move_interval <= 3) ? 2 : 1;
-        dino_vpos -= fall_speed;
-        if (dino_vpos < 0) dino_vpos = 0; /* no bajar de 0 */
+    if (posicion_vertical_dino > 0) {
+        /* Calcular velocidad de caída según intervalo_movimiento:
+           - intervalo_movimiento 6 (lento): decrement = 1
+           - intervalo_movimiento 4 (medio): decrement = 1
+           - intervalo_movimiento 2 (rápido): decrement = 2 */
+        int velocidad_caida = (intervalo_movimiento <= 3) ? 2 : 1;
+        posicion_vertical_dino -= velocidad_caida;
+        if (posicion_vertical_dino < 0) posicion_vertical_dino = 0; /* no bajar de 0 */
     }
 
     /* Incrementar contador de movimiento y mover obstáculos sólo cuando
        alcanzamos el intervalo. Esto permite ajustar velocidad inicial más
        lenta y aumentarla con el tiempo. */
-    move_counter++;
-    if (move_counter < move_interval) {
+    contador_movimiento++;
+    if (contador_movimiento < intervalo_movimiento) {
         return; /* no mover obstáculos aún */
     }
-    move_counter = 0;
+    contador_movimiento = 0;
     /* Mover obstáculos hacia la izquierda */
     /* Guardar si había un obstáculo en la columna del dino antes del movimiento
        para poder contar cuando haya pasado con éxito. */
-    uint8_t was_at_dino = obstacles[dino_col];
-    for (int i = 0; i < DINO_COLS - 1; i++) {
-        obstacles[i] = obstacles[i + 1];
+    uint8_t habia_en_dino = obstaculos[columna_dino];
+    for (int i = 0; i < COLUMNAS_DINO - 1; i++) {
+        obstaculos[i] = obstaculos[i + 1];
     }
 
     /* Actualizar posición del último obstáculo (se mueve a la izquierda) */
-    if (last_obstacle_pos > 0) {
-        last_obstacle_pos--;
+    if (posicion_ultimo_obstaculo > 0) {
+        posicion_ultimo_obstaculo--;
     }
 
-    /* Generar spawn usando un umbral sobre 0..255; spawn_threshold pequeño al
+    /* Generar spawn usando un umbral sobre 0..255; umbral_spawn pequeño al
        inicio provoca pocos obstáculos, y lo aumentamos con el tiempo.
        Ahora los obstáculos pueden tener tamaño 1, 2 o 3 caracteres.
        IMPORTANTE: Solo generar si hay al menos 4 espacios desde el último obstáculo */
-    uint16_t r = lfsr16() & 0xFFu;
-    if (r < spawn_threshold && last_obstacle_pos == 0) {
+    uint16_t r = generar_aleatorio_lfsr16() & 0xFFu;
+    if (r < umbral_spawn && posicion_ultimo_obstaculo == 0) {
         /* Generar tamaño aleatorio del obstáculo: 1, 2 o 3 */
-        uint8_t size = (lfsr16() % 3) + 1; /* 1, 2 o 3 */
-        obstacles[DINO_COLS - 1] = size;
+        uint8_t tamaño = (generar_aleatorio_lfsr16() % 3) + 1; /* 1, 2 o 3 */
+        obstaculos[COLUMNAS_DINO - 1] = tamaño;
         /* Marcar que generamos obstáculo: mínimo 4 espacios de separación
            (3 vacíos + 1 del obstáculo) */
-        last_obstacle_pos = 4 + size; /* separación + tamaño del obstáculo */
+        posicion_ultimo_obstaculo = 4 + tamaño; /* separación + tamaño del obstáculo */
     } else {
-        obstacles[DINO_COLS - 1] = 0;
+        obstaculos[COLUMNAS_DINO - 1] = 0;
     }
 
      /* Ajustar dificultad dinámicamente según puntuación (cada obstáculo pasado).
-         - move_interval baja gradualmente (obstáculos se mueven más rápido).
-         - spawn_threshold sube gradualmente (más probabilidad de spawn).
+         - intervalo_movimiento baja gradualmente (obstáculos se mueven más rápido).
+         - umbral_spawn sube gradualmente (más probabilidad de spawn).
          Esto produce un aumento suave de la dificultad conforme avanza. */
      /* Cada 5 puntos, aumentar velocidad */
-     int speed_level = score / 5;
-     int new_move = (int)INIT_MOVE_INTERVAL - speed_level;
-     if (new_move < MIN_MOVE_INTERVAL) new_move = MIN_MOVE_INTERVAL;
-     move_interval = (uint8_t)new_move;
+     int nivel_velocidad = puntuacion / 5;
+     int nuevo_intervalo = (int)INTERVALO_MOVIMIENTO_INICIAL - nivel_velocidad;
+     if (nuevo_intervalo < INTERVALO_MOVIMIENTO_MINIMO) nuevo_intervalo = INTERVALO_MOVIMIENTO_MINIMO;
+     intervalo_movimiento = (uint8_t)nuevo_intervalo;
 
-     /* Cada 3 puntos, aumentar probabilidad de spawn; limitar a MAX_SPAWN_THRESHOLD */
-     int spawn_level = score / 3;
-     int new_spawn = (int)BASE_SPAWN_THRESHOLD + (spawn_level * 2);
-     if (new_spawn > MAX_SPAWN_THRESHOLD) new_spawn = MAX_SPAWN_THRESHOLD;
-     spawn_threshold = (uint8_t)new_spawn;
+     /* Cada 3 puntos, aumentar probabilidad de spawn; limitar a UMBRAL_SPAWN_MAXIMO */
+     int nivel_spawn = puntuacion / 3;
+     int nuevo_spawn = (int)UMBRAL_SPAWN_BASE + (nivel_spawn * 2);
+     if (nuevo_spawn > UMBRAL_SPAWN_MAXIMO) nuevo_spawn = UMBRAL_SPAWN_MAXIMO;
+     umbral_spawn = (uint8_t)nuevo_spawn;
 
-    check_collision();
+    verificar_colision();
 
     /* Si antes había un obstáculo en la columna del dino y ahora
        no está ocupada -> +1 punto (pasó correctamente). */
-    int now_at_dino = obstacles[dino_col];
-    if (was_at_dino && !now_at_dino && !game_over) {
-        score++;
+    int ahora_en_dino = obstaculos[columna_dino];
+    if (habia_en_dino && !ahora_en_dino && !juego_terminado) {
+        puntuacion++;
     }
 }
 
@@ -413,28 +413,28 @@ static void game_tick_update(void) {
  * @brief Inicializa TIMER2 para generar ticks de juego cada 50ms.
  *
  * Configura TIMER2 en modo contador con prescaler de 1ms y match en 50ms.
- * Genera interrupción periódica que setea game_tick_flag para actualización
+ * Genera interrupción periódica que setea bandera_tick_juego para actualización
  * del juego en el main loop.
  */
-static void timer2_init(void) {
-    TIM_TIMERCFG_Type timer_config;
-    TIM_MATCHCFG_Type match_config;
+static void inicializar_timer2(void) {
+    TIM_TIMERCFG_Type configuracion_timer;
+    TIM_MATCHCFG_Type configuracion_match;
 
     /* Configurar prescaler para base de tiempo de 1ms */
-    timer_config.prescaleOption = TIM_USVAL;
-    timer_config.prescaleValue = 1000; /* 1ms base time */
+    configuracion_timer.prescaleOption = TIM_USVAL;
+    configuracion_timer.prescaleValue = 1000; /* 1ms base time */
 
-    TIM_Init(LPC_TIM2, TIM_TIMER_MODE, &timer_config);
+    TIM_Init(LPC_TIM2, TIM_TIMER_MODE, &configuracion_timer);
 
     /* Configurar match para período de tick del juego (50ms) */
-    match_config.matchChannel = TIM_MATCH_CHANNEL_0;
-    match_config.intOnMatch = ENABLE;        /* Generar interrupción */
-    match_config.resetOnMatch = ENABLE;      /* Reset automático en match */
-    match_config.stopOnMatch = DISABLE;      /* Continuar después del match */
-    match_config.extMatchOutputType = TIM_NOTHING;
-    match_config.matchValue = TICK_MS;       /* 50ms tick rate */
+    configuracion_match.matchChannel = TIM_MATCH_CHANNEL_0;
+    configuracion_match.intOnMatch = ENABLE;        /* Generar interrupción */
+    configuracion_match.resetOnMatch = ENABLE;      /* Reset automático en match */
+    configuracion_match.stopOnMatch = DISABLE;      /* Continuar después del match */
+    configuracion_match.extMatchOutputType = TIM_NOTHING;
+    configuracion_match.matchValue = TICK_MS;       /* 50ms tick rate */
 
-    TIM_ConfigMatch(LPC_TIM2, &match_config);
+    TIM_ConfigMatch(LPC_TIM2, &configuracion_match);
 
     /* Habilitar interrupción TIMER2 en NVIC */
     NVIC_EnableIRQ(TIMER2_IRQn);
@@ -447,12 +447,12 @@ static void timer2_init(void) {
  * @brief Handler de interrupción de TIMER2.
  *
  * Se ejecuta cada 50ms (20 Hz) cuando TIMER2 alcanza el valor de match.
- * Setea la bandera game_tick_flag para indicar al main loop que debe
+ * Setea la bandera bandera_tick_juego para indicar al main loop que debe
  * procesar un tick de juego. Mantiene la ISR lo más breve posible.
  */
 void TIMER2_IRQHandler(void) {
     if (TIM_GetIntStatus(LPC_TIM2, TIM_MR0_INT)) {
-        game_tick_flag = 1;
+        bandera_tick_juego = 1;
         TIM_ClearIntPending(LPC_TIM2, TIM_MR0_INT);
     }
 }
@@ -469,32 +469,32 @@ void TIMER2_IRQHandler(void) {
  * Nota: Deshabilita TIMER0_IRQn para evitar conflictos con otras ISRs
  * que puedan escribir en el LCD simultáneamente.
  */
-void dino_game_init(void) {
+void juego_dinosaurio_inicializar(void) {
     /* NOTA: P0.4 YA está configurado como GPIO input con PULL-UP en main.c
        No reconfigurar aquí para no sobrescribir la configuración global */
     
     /* Asegurar que P0.4 es entrada (sin tocar el pinMode) */
-    LPC_GPIO0->FIODIR &= ~(1u << DINO_BUTTON_PIN);
+    LPC_GPIO0->FIODIR &= ~(1u << PIN_BOTON_DINO);
 
     /* Deshabilitar IRQ de TIMER2 por si estaba activo */
     NVIC_DisableIRQ(TIMER2_IRQn);
     
     /* Limpiar flag de tick pendiente */
-    game_tick_flag = 0;
+    bandera_tick_juego = 0;
     
     /* Iniciar TIMER2 para ticks del juego (TIM_Init ya resetea el timer) */
-    timer2_init();
+    inicializar_timer2();
 
     /* Resetear estado del juego */
-    dino_game_restart();
+    juego_dinosaurio_reiniciar();
 
     /* Iniciar juego inmediatamente (como Snake) */
-    game_started = 1;
+    juego_iniciado = 1;
 
     /* SIEMPRE dibujar pantalla inicial limpia */
     lcd_borrarPantalla();
-    draw_score_display();
-    draw_game_screen();
+    dibujar_marcadores();
+    dibujar_pantalla_juego();
 
     /* NOTA: TIMER0_IRQn debe estar HABILITADO para que funcione el DAC/audio.
        El sistema de melodías no interfiere con el LCD porque usa DMA y
@@ -506,31 +506,31 @@ void dino_game_init(void) {
  * Implementa debounce simple:
  * - Detecta cambios de estado del botón
  * - Espera 2 ticks de estabilidad antes de confirmar
- * - Setea jump_requested inmediatamente al presionar (para respuesta rápida)
- * - Actualiza button_held después de confirmar estado estable
+ * - Setea salto_solicitado inmediatamente al presionar (para respuesta rápida)
+ * - Actualiza boton_presionado después de confirmar estado estable
  */
-static void update_button_state(void) {
-    int raw = read_button();
-    int pressed = (raw == 1);  // Botón activo BAJO: 1 = presionado
+static void actualizar_estado_boton(void) {
+    int raw = leer_boton();
+    int presionado = (raw == 1);  // Botón activo BAJO: 1 = presionado
 
-    if (pressed != last_button_state) {
-        debounce_cnt = 0;
-        last_button_state = pressed;
+    if (presionado != estado_boton_anterior) {
+        contador_debounce = 0;
+        estado_boton_anterior = presionado;
 
         /* Si cambió a presionado, marcar solicitud de salto inmediatamente */
-        if (pressed) {
-            jump_requested = 1;
+        if (presionado) {
+            salto_solicitado = 1;
         }
         return;
     }
 
-    if (debounce_cnt < 3) {
-        debounce_cnt++;
+    if (contador_debounce < 3) {
+        contador_debounce++;
         return;
     }
 
-    /* Estado estable: actualizar button_held */
-    button_held = pressed ? 1 : 0;
+    /* Estado estable: actualizar boton_presionado */
+    boton_presionado = presionado ? 1 : 0;
 }
 
 /**
@@ -541,15 +541,15 @@ static void update_button_state(void) {
  *
  * @return 1 si detectó flanco ascendente, 0 en caso contrario
  */
-static int button_pressed_edge(void) {
-    int edge = 0;
+static int flanco_boton_presionado(void) {
+    int flanco = 0;
 
-    if (button_held && !last_held) {
-        edge = 1; /* flanco ascendente */
+    if (boton_presionado && !ultimo_estado_confirma) {
+        flanco = 1; /* flanco ascendente */
     }
 
-    last_held = button_held;
-    return edge;
+    ultimo_estado_confirma = boton_presionado;
+    return flanco;
 }
 
 /**
@@ -562,32 +562,32 @@ static int button_pressed_edge(void) {
  *
  * Actualizado en cada frame del juego.
  */
-static void draw_score_display(void) {
+static void dibujar_marcadores(void) {
     /* Mostrar etiqueta DINO en esquina superior izquierda */
-    lcd_setCursor(0, 0);
+    lcd_establecer_cursor(0, 0);
     lcd_escribir("DINO");
 
     /* Mostrar tiempo transcurrido (segundos) en el centro */
-    int time_s = (int)(ticks_since_start / TICKS_PER_SEC);
-    char time_s_buf[4];
-    time_s_buf[3] = '\0';
-    int ts = time_s;
-    time_s_buf[2] = (ts % 10) + '0'; ts /= 10;
-    time_s_buf[1] = (ts % 10) + '0'; ts /= 10;
-    time_s_buf[0] = (ts % 10) + '0';
-    int time_col = (DINO_COLS - 3) / 2;
-    lcd_setCursor(0, time_col);
-    lcd_escribir(time_s_buf);
+    int tiempo_s = (int)(ticks_desde_inicio / TICKS_POR_SEGUNDO);
+    char buffer_tiempo[4];
+    buffer_tiempo[3] = '\0';
+    int ts = tiempo_s;
+    buffer_tiempo[2] = (ts % 10) + '0'; ts /= 10;
+    buffer_tiempo[1] = (ts % 10) + '0'; ts /= 10;
+    buffer_tiempo[0] = (ts % 10) + '0';
+    int columna_tiempo = (COLUMNAS_DINO - 3) / 2;
+    lcd_establecer_cursor(0, columna_tiempo);
+    lcd_escribir(buffer_tiempo);
 
     /* Mostrar puntuación en esquina superior derecha */
-    char score_s[4];
-    int sc = (int)score;
-    score_s[3] = '\0';
-    score_s[2] = (sc % 10) + '0'; sc /= 10;
-    score_s[1] = (sc % 10) + '0'; sc /= 10;
-    score_s[0] = (sc % 10) + '0';
-    lcd_setCursor(0, DINO_COLS - 3);
-    lcd_escribir(score_s);
+    char texto_puntuacion[4];
+    int sc = (int)puntuacion;
+    texto_puntuacion[3] = '\0';
+    texto_puntuacion[2] = (sc % 10) + '0'; sc /= 10;
+    texto_puntuacion[1] = (sc % 10) + '0'; sc /= 10;
+    texto_puntuacion[0] = (sc % 10) + '0';
+    lcd_establecer_cursor(0, COLUMNAS_DINO - 3);
+    lcd_escribir(texto_puntuacion);
 }
 
 /**
@@ -604,85 +604,85 @@ static void draw_score_display(void) {
  * 4. Si jugando: procesar salto, física, colisiones, animación, dibujo
  * 5. Si game over: mostrar mensaje y esperar reinicio
  */
-void dino_game_run(void) {
+void juego_dinosaurio_ejecutar(void) {
     /* Polling adicional del flag de TIMER2 por si la ISR no se ejecuta.
        Esto previene que el juego se bloquee si NVIC está deshabilitado. */
     if (TIM_GetIntStatus(LPC_TIM2, TIM_MR0_INT)) {
         TIM_ClearIntPending(LPC_TIM2, TIM_MR0_INT);
-        game_tick_flag = 1;
+        bandera_tick_juego = 1;
     }
 
     /* Salir si no hay tick pendiente */
-    if (!game_tick_flag) return;
-    game_tick_flag = 0;
+    if (!bandera_tick_juego) return;
+    bandera_tick_juego = 0;
 
     /* Actualizar estado del botón en cada tick */
-    update_button_state();
+    actualizar_estado_boton();
 
     /* Si el juego aún no fue iniciado por el usuario, esperar pulsación para
        arrancar. Esto evita que el código borre la pantalla inesperadamente al
        arrancar y permite ver el texto inicial. */
-    if (!game_started) {
-        /* Usar jump_requested que se setea inmediatamente al detectar el botón */
-        if (jump_requested) {
-            game_started = 1;
-            jump_requested = 0; /* Limpiar para evitar salto inmediato */
-            dino_game_restart();
+    if (!juego_iniciado) {
+        /* Usar salto_solicitado que se setea inmediatamente al detectar el botón */
+        if (salto_solicitado) {
+            juego_iniciado = 1;
+            salto_solicitado = 0; /* Limpiar para evitar salto inmediato */
+            juego_dinosaurio_reiniciar();
 
             /* Iniciar música de fondo en loop continuo */
 
             lcd_borrarPantalla();
             /* dibujar primer frame inmediatamente */
-            draw_score_display();
-            draw_game_screen();
+            dibujar_marcadores();
+            dibujar_pantalla_juego();
         } else {
             return; /* esperar a que el usuario pulse */
         }
     }
 
     /* Leer botón: si se presiona y está en el suelo -> iniciar salto */
-    if (!game_over) {
+    if (!juego_terminado) {
         /* Iniciar salto si hay solicitud pendiente y está en el suelo */
-        if (jump_requested && dino_vpos == 0) {
+        if (salto_solicitado && posicion_vertical_dino == 0) {
             /* Duración del salto ajustada según velocidad del juego:
-               - A velocidad inicial (move_interval=6): 20 ticks
-               - A velocidad máxima (move_interval=2): 12 ticks
+               - A velocidad inicial (intervalo_movimiento=6): 20 ticks
+               - A velocidad máxima (intervalo_movimiento=2): 12 ticks
                Esto hace que el salto sea más rápido cuando el juego acelera */
-            int jump_duration = 10 + (move_interval * 2); /* 12 a 22 ticks */
-            dino_vpos = jump_duration;
-            jump_requested = 0; /* Limpiar flag después de usar */
+            int duracion_salto = 10 + (intervalo_movimiento * 2); /* 12 a 22 ticks */
+            posicion_vertical_dino = duracion_salto;
+            salto_solicitado = 0; /* Limpiar flag después de usar */
 
             // NO reproducir efecto (interrumpe música de fondo)
             // melodias_iniciar(melodia_salto);
         }
 
         /* Actualizar física del juego (movimiento, colisiones, spawns) */
-        game_tick_update();
+        actualizar_tick_juego();
 
         /* Actualizar animación del dinosaurio (ciclo de frames) */
-        update_dino_animation();
+        actualizar_animacion_dino();
 
         /* Actualizar sistema de melodías DAC (no bloqueante) */
         melodias_actualizar();
 
         /* Dibujar todo el frame (optimizado, sin parpadeo) */
-        draw_game_screen();
-        draw_score_display();
+        dibujar_pantalla_juego();
+        dibujar_marcadores();
     } else {
         /* Game over: mostrar mensaje y esperar botón para volver al menú */
         static uint8_t game_over_mostrado = 0;
         
         if (!game_over_mostrado) {
-            lcd_setCursor(1, 0);
+            lcd_establecer_cursor(1, 0);
             lcd_escribir("  GAME OVER   ");
-            lcd_setCursor(3, 0);
+            lcd_establecer_cursor(3, 0);
             lcd_escribir("Boton:Volver al menu");
             game_over_mostrado = 1;
         }
         
-        if (button_pressed_edge()) {
+        if (flanco_boton_presionado()) {
             /* Usuario quiere volver al menú */
-            game_over = 2;  // Estado especial: volver al menú solicitado
+            juego_terminado = 2;  // Estado especial: volver al menú solicitado
             game_over_mostrado = 0;
         }
     }
@@ -694,13 +694,13 @@ void dino_game_run(void) {
  * Alterna entre frame 0 y frame 1 cada 6 ticks (~300ms) para crear
  * efecto de caminata. La animación se pausa durante el salto.
  */
-static void update_dino_animation(void) {
+static void actualizar_animacion_dino(void) {
     /* Solo animar cuando está en el suelo */
-    if (dino_vpos == 0) {
-        animation_counter++;
-        if (animation_counter >= 6) { /* Cambiar frame cada 6 ticks (~300ms) */
-            current_frame = (current_frame + 1) % 2;
-            animation_counter = 0;
+    if (posicion_vertical_dino == 0) {
+        contador_animacion++;
+        if (contador_animacion >= 6) { /* Cambiar frame cada 6 ticks (~300ms) */
+            frame_actual = (frame_actual + 1) % 2;
+            contador_animacion = 0;
         }
     }
 }
@@ -709,6 +709,6 @@ static void update_dino_animation(void) {
  * @brief Retorna el estado del juego
  * @return 0 = jugando, 1 = game over (pantalla mostrada), 2 = volver al menú
  */
-uint8_t dino_game_is_over(void) {
-    return game_over;
+uint8_t juego_dinosaurio_ha_terminado(void) {
+    return juego_terminado;
 }

@@ -28,7 +28,7 @@ typedef enum {
  * 
  * Debe llamarse una vez al inicio, después de inicializar LCD y joystick.
  */
-void menu_init(void);
+void menu_inicializar(void);
 
 /**
  * @brief Muestra el menú en el LCD y procesa entrada del joystick
@@ -38,13 +38,13 @@ void menu_init(void);
  * 
  * @return JuegoID del juego seleccionado, o -1 si aún no se seleccionó
  */
-int8_t menu_run(void);
+int8_t menu_ejecutar(void);
 
 /**
  * @brief Reinicia el menú para volver a mostrar las opciones
  * 
  * Llamar cuando un juego termina y se quiere volver al menú.
  */
-void menu_reset(void);
+void menu_reiniciar(void);
 
 #endif // MENU_JUEGOS_H

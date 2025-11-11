@@ -13,14 +13,14 @@
  * @brief Inicializa el LCD en modo 4 bits y lo deja listo para recibir comandos y datos.
  * Debe llamarse una vez al inicio del programa, después de configurar el I2C.
  */
-void lcd_init(void);
+void lcd_inicializar(void);
 
 /**
  * @brief Posiciona el cursor en la fila y columna indicadas.
  * @param fila Fila (0 a 3, según el tipo de LCD)
  * @param columna Columna (0 a 19 para LCD de 20x4)
  */
-void lcd_setCursor(uint8_t fila, uint8_t columna);
+void lcd_establecer_cursor(uint8_t fila, uint8_t columna);
 /**
  * @brief Escribe una cadena de texto en el LCD desde la posición actual del cursor.
  * @param string Cadena de caracteres a mostrar en el LCD.
@@ -55,20 +55,24 @@ void lcd_desplazarDerecha(void);
 /**
  * @brief Activa el parpadeo del cursor en la posición actual.
  */
-void lcd_parpadearCursor(void);
+void lcd_activar_parpadeo_cursor(void);
 
 /**
  * @brief Desactiva el parpadeo del cursor.
  */
-void lcd_parpadearCursorOff(void);
+void lcd_desactivar_parpadeo_cursor(void);
 
-/** Crea un carácter personalizado en la CGRAM del LCD.
- *  index: 0..7
- *  pattern: arreglo de 8 bytes con los 5 bits inferiores usados por fila.
+/** 
+ * @brief Crea un carácter personalizado en la CGRAM del LCD.
+ * @param indice 0..7
+ * @param patron Arreglo de 8 bytes con los 5 bits inferiores usados por fila.
  */
-void lcd_createChar(uint8_t index, const uint8_t pattern[8]);
+void lcd_crear_caracter(uint8_t indice, const uint8_t patron[8]);
 
-/** Escribe un único byte de datos (carácter) en la posición actual del cursor. */
-void lcd_writeDataByte(uint8_t ch);
+/** 
+ * @brief Escribe un único byte de datos (carácter) en la posición actual del cursor.
+ * @param caracter Carácter a escribir
+ */
+void lcd_escribir_byte(uint8_t caracter);
 
 #endif // LCD_I2C_H

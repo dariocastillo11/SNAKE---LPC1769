@@ -28,7 +28,7 @@
  * - GPIO para LEDs (P0.0, P0.6-P0.9) como salidas
  * - Interrupción del botón (P2.10)
  */
-void joystick_init(void);
+void joystick_inicializar(void);
 
 /**
  * @brief Lee el estado actual del joystick y actualiza los LEDs.
@@ -37,7 +37,7 @@ void joystick_init(void);
  * Lee los valores ADC del eje X e Y y enciende el LED correspondiente
  * según la dirección detectada o el estado del botón.
  */
-void joystick_update(void);
+void joystick_actualizar(void);
 
 /**
  * @brief Lee el valor del ADC en un canal específico.

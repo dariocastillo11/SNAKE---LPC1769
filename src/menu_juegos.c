@@ -18,7 +18,7 @@
 #include <string.h>
 
 /* === CONFIGURACIÓN DEL MENÚ === */
-#define MENU_DEBOUNCE_TICKS 15   // Ticks de debounce para navegación (evita saltos)
+#define TICKS_DEBOUNCE_MENU 15   // Ticks de debounce para navegación (evita saltos)
 
 /* === NOMBRES DE LOS JUEGOS === */
 static const char* nombres_juegos[NUM_JUEGOS] = {
@@ -42,12 +42,12 @@ static void dibujar_menu(void) {
     lcd_borrarPantalla();
     
     // Título en la primera línea
-    lcd_setCursor(0, 0);
+    lcd_establecer_cursor(0, 0);
     lcd_escribir("  SELECCIONA JUEGO");
     
     // Mostrar opciones con puntero ">"
     for (uint8_t i = 0; i < NUM_JUEGOS; i++) {
-        lcd_setCursor(i + 1, 0);  // Opciones en líneas 1 y 2
+        lcd_establecer_cursor(i + 1, 0);  // Opciones en líneas 1 y 2
         
         if (i == opcion_actual) {
             lcd_escribir("> ");  // Puntero en opción actual
@@ -59,7 +59,7 @@ static void dibujar_menu(void) {
     }
     
     // Instrucciones en la última línea
-    lcd_setCursor(3, 0);
+    lcd_establecer_cursor(3, 0);
     lcd_escribir("Arriba/Abajo/Boton");
 }
 
@@ -72,11 +72,11 @@ static uint8_t leer_boton_p04(void) {
     uint8_t physical = (LPC_GPIO0->FIOPIN & (1u << 4)) ? 0 : 1;
     
     /* Leer comando Bluetooth */
-    uint8_t bt_button = bt_get_button_command();
+    uint8_t bt_button = bt_obtener_comando_boton();
     
     /* Si cualquiera está presionado, retornar 1 */
     if (bt_button) {
-        bt_clear_button_command();  // Limpiar después de leer
+        bt_limpiar_comando_boton();  // Limpiar después de leer
         return 1;
     }
     
@@ -103,7 +103,7 @@ static uint8_t procesar_entrada(void) {
         if (boton_actual && !boton_anterior) {
             // Flanco ascendente del botón: seleccionar juego
             juego_seleccionado = 1;
-            debounce_counter = MENU_DEBOUNCE_TICKS;
+            debounce_counter = TICKS_DEBOUNCE_MENU;
             boton_anterior = boton_actual;
             return 1;
         }
@@ -124,7 +124,7 @@ static uint8_t procesar_entrada(void) {
         if (opcion_actual > 0) {
             opcion_actual--;
             dibujar_menu();
-            debounce_counter = MENU_DEBOUNCE_TICKS;
+            debounce_counter = TICKS_DEBOUNCE_MENU;
         }
     }
     
@@ -133,7 +133,7 @@ static uint8_t procesar_entrada(void) {
         if (opcion_actual < NUM_JUEGOS - 1) {
             opcion_actual++;
             dibujar_menu();
-            debounce_counter = MENU_DEBOUNCE_TICKS;
+            debounce_counter = TICKS_DEBOUNCE_MENU;
         }
     }
     
@@ -143,7 +143,7 @@ static uint8_t procesar_entrada(void) {
 
 /* === FUNCIONES PÚBLICAS === */
 
-void menu_init(void) {
+void menu_inicializar(void) {
     opcion_actual = 0;
     menu_activo = 1;
     juego_seleccionado = 0;
@@ -152,7 +152,7 @@ void menu_init(void) {
     dibujar_menu();
 }
 
-int8_t menu_run(void) {
+int8_t menu_ejecutar(void) {
     if (!menu_activo) {
         return -1;  // Menú no activo
     }
@@ -170,7 +170,7 @@ int8_t menu_run(void) {
     return -1;  // Aún no hay selección
 }
 
-void menu_reset(void) {
+void menu_reiniciar(void) {
     opcion_actual = 0;
     menu_activo = 1;
     juego_seleccionado = 0;
