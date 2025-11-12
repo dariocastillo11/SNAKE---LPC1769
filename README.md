@@ -1,14 +1,7 @@
 # 🎮 DinoChrome Arcade - Consola Emulada en LPC1769
 
-[//]: # (Prototipo: miniatura clicable. GitHub README no permite JavaScript/iframe; si quieres reproducción inline usa `docs/video.html` con GitHub Pages o abre el archivo en un navegador.)
 # prototipo:
-
-[![Ver vídeo: Dino](https://img.youtube.com/vi/1SkBKUzI0do/hqdefault.jpg)](https://www.youtube.com/watch?v=1SkBKUzI0do)
-
-
-
-https://dariocastillo11.github.io/SNAKE---LPC1769/
-
+https://youtu.be/1SkBKUzI0do
 
 [![Estado](https://img.shields.io/badge/estado-Activo-brightgreen)]()
 [![Lenguaje](https://img.shields.io/badge/lenguaje-C-blue)]()
@@ -282,4 +275,3 @@ void GPDMA_IRQHandler(void);  // ISR único que despacha ambos canales
 
 
 ---
-
