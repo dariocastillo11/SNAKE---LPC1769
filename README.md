@@ -5,6 +5,7 @@
 
 [![Ver vídeo: Dino](https://img.youtube.com/vi/1SkBKUzI0do/hqdefault.jpg)](https://www.youtube.com/watch?v=1SkBKUzI0do)
 
+
 > Nota: El `README.md` de GitHub no permite ejecutar JavaScript ni iframes. Si quieres reproducir el vídeo directamente en la página, abre `docs/video.html` (útil para GitHub Pages o como archivo HTML local).
 [![Estado](https://img.shields.io/badge/estado-Activo-brightgreen)]()
 [![Lenguaje](https://img.shields.io/badge/lenguaje-C-blue)]()
