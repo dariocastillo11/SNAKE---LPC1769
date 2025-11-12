@@ -1,7 +1,92 @@
 # 🎮 DinoChrome Arcade - Consola Emulada en LPC1769
 
 # prototipo:
-https://youtu.be/1SkBKUzI0do
+<!-- Contenedor: pega donde quieras en tu página -->
+<div class="yt-player" data-id="1SkBKUzI0do" aria-label="Reproducir vídeo">
+  <img loading="lazy" src="https://img.youtube.com/vi/1SkBKUzI0do/hqdefault.jpg" alt="Vídeo Dino">
+  <button class="yt-play" aria-hidden="true">►</button>
+</div>
+
+<!-- Estilos mínimos (ajusta tamaños si quieres) -->
+<style>
+.yt-player {
+  position: relative;
+  width: 100%;
+  max-width: 640px;            /* ancho máximo */
+  margin: 0 auto;
+  cursor: pointer;
+  background: #000;
+  overflow: hidden;
+  border-radius: 6px;
+}
+/* Mantener 16:9 */
+.yt-player::before {
+  content: "";
+  display: block;
+  padding-top: 56.25%;
+}
+.yt-player img, .yt-player iframe {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.yt-play {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  border: none;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  font-size: 34px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+}
+.yt-player:focus { outline: 2px solid #66a3ff; }
+</style>
+
+<!-- Script: reemplaza la miniatura por el iframe cuando se hace clic -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.yt-player').forEach(function (p) {
+    p.addEventListener('click', function handler() {
+      var id = p.dataset.id;
+      // Si quieres autoplay con sonido puede ser bloqueado por el navegador.
+      // Para asegurar autoplay, puedes añadir &mute=1 (reproducirá en silencio).
+      var autoplayParams = '?autoplay=1&rel=0';
+      var src = 'https://www.youtube.com/embed/' + id + autoplayParams;
+      var iframe = document.createElement('iframe');
+      iframe.setAttribute('src', src);
+      iframe.setAttribute('frameborder', '0');
+      iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
+      iframe.setAttribute('allowfullscreen', '');
+      // Hacer responsive (ocupar tamaño del contenedor)
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      // Reemplazar contenido
+      p.innerHTML = '';
+      p.appendChild(iframe);
+      // Remover listener por si acaso
+      p.removeEventListener('click', handler);
+    });
+    // Soporte con teclado (Enter/Space)
+    p.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.click(); }
+    });
+    // Hacer el contenedor accesible
+    p.setAttribute('tabindex', '0');
+    p.style.outline = 'none';
+  });
+});
+</script>
 
 [![Estado](https://img.shields.io/badge/estado-Activo-brightgreen)]()
 [![Lenguaje](https://img.shields.io/badge/lenguaje-C-blue)]()
