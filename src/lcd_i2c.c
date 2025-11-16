@@ -28,6 +28,14 @@ static uint8_t i2c_buffer[1];
  */
 static void i2c_enviarByte(uint8_t dato) {
     I2C_M_SETUP_Type cfgMaestro;
+    cfgMaestro.sl_addr7bit = LCD_DIRECCION;
+    cfgMaestro.tx_data = i2c_buffer;
+    cfgMaestro.tx_length = 1;
+    cfgMaestro.rx_data = NULL;
+    cfgMaestro.rx_length = 0;
+    cfgMaestro.retransmissions_max = 3;
+    i2c_buffer[0] = dato;
+    I2C_MasterTransferData(LPC_I2C0, &cfgMaestro, I2C_TRANSFER_POLLING);
     cfgMaestro.sl_addr7bit = LCD_DIRECCION;//DIRECCION DEL ESCLAVO
     cfgMaestro.tx_data = i2c_buffer;//PUNTERO DE LOS DATOS A TRANSMITIR
     cfgMaestro.tx_length = 1;//LONGITUD DE LOS DATOS A TRANSMITIR 
@@ -74,7 +82,7 @@ static void lcd_enviarNibble(uint8_t dato) {
 /**
  * @brief Inicializa el LCD en modo 4 bits, limpia pantalla y configura parámetros básicos.
  */
-void lcd_init(void) {
+void lcd_inicializar(void) {
     lcd_enviarNibble(0x30);
     lcd_enviarNibble(0x30);
     lcd_enviarNibble(0x30);
@@ -91,7 +99,7 @@ void lcd_init(void) {
  * @param fila Fila (0 a 3)
  * @param columna Columna (0 a 19)
  */
-void lcd_setCursor(uint8_t fila, uint8_t columna) {
+void lcd_establecer_cursor(uint8_t fila, uint8_t columna) {
     uint8_t posicion[] = {0x00, 0x40, 0x14, 0x54};
     lcd_enviarByte(0x80 | (posicion[fila] + columna), MODO_COMANDO);
 }
@@ -111,7 +119,7 @@ void lcd_escribir(const char *string) {
  */
 void lcd_borrarPantalla(void) {
     lcd_enviarByte(0x01, MODO_COMANDO);
-    lcd_setCursor(0, 0);
+    lcd_establecer_cursor(0, 0);
 }
 
 /**
@@ -119,6 +127,9 @@ void lcd_borrarPantalla(void) {
  * @param fila Fila a borrar (0 a 3)
  */
 void lcd_borrarFila(uint8_t fila) {
+    lcd_establecer_cursor(fila, 0);
+    for (uint8_t i = 0; i < 20; i++) lcd_enviarByte(' ', MODO_DATOS);
+    lcd_establecer_cursor(fila, 0);
     lcd_setCursor(fila, 0);
     for (uint8_t i = 0; i < LONG_COLUMNA_LCD; i++){
         lcd_enviarByte(' ', MODO_DATOS);
@@ -151,13 +162,32 @@ void lcd_desplazarDerecha(void) {
 /**
  * @brief Activa el parpadeo del cursor en la posición actual.
  */
-void lcd_parpadearCursor(void) {
+void lcd_activar_parpadeo_cursor(void) {
     lcd_enviarByte(0x0F, MODO_COMANDO);
 }
 
 /**
  * @brief Desactiva el parpadeo del cursor.
  */
-void lcd_parpadearCursorOff(void) {
+void lcd_desactivar_parpadeo_cursor(void) {
     lcd_enviarByte(0x0C, MODO_COMANDO);
+}
+
+/**
+ * @brief Crea un carácter personalizado en CGRAM (índice 0..7)
+ */
+void lcd_crear_caracter(uint8_t indice, const uint8_t patron[8]) {
+    if (indice > 7) return;
+    /* Establecer dirección CGRAM: 0x40 + indice*8 */
+    lcd_enviarByte(0x40 | (indice << 3), MODO_COMANDO);
+    for (int i = 0; i < 8; i++) {
+        lcd_enviarByte(patron[i] & 0x1F, MODO_DATOS);
+    }
+}
+
+/**
+ * @brief Escribe un byte de datos (carácter) en la posición actual.
+ */
+void lcd_escribir_byte(uint8_t ch) {
+    lcd_enviarByte(ch, MODO_DATOS);
 }

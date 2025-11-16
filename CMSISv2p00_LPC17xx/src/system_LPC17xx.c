@@ -284,6 +284,10 @@
 #define SCS_Val               0x00000020
 #define CLKSRCSEL_Val         0x00000001
 #define PLL0_SETUP            1
+#define PLL0CFG_Val           0x00050063
+#define PLL1_SETUP            1
+#define PLL1CFG_Val           0x00000023
+#define CCLKCFG_Val           0x00000003
 #define PLL0CFG_Val           0x00050063 //M multiplicador pll
 #define PLL1_SETUP            1
 #define PLL1CFG_Val           0x00000023

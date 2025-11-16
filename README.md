@@ -1,147 +1,277 @@
-# 📚 Funciones LCD_I2C para LPC1769
+# 🎮 DinoChrome Arcade - Consola Emulada en LPC1769
 
-Estas funciones permiten controlar un display LCD estándar mediante interfaz I2C una LPC1769.
+# prototipo:
+https://youtu.be/1SkBKUzI0do
 
----
+[![Estado](https://img.shields.io/badge/estado-Activo-brightgreen)]()
+[![Lenguaje](https://img.shields.io/badge/lenguaje-C-blue)]()
+[![Hardware](https://img.shields.io/badge/hardware-ARM%20LPC1769-lightgrey)]()
 
-## 🔓 **Funciones públicas**
 
-Estas funciones están disponibles para el usuario y se declaran en `lcd_i2c.h`:
-
-| Función                      | Descripción                                                                 |
-|------------------------------|-----------------------------------------------------------------------------|
-| `lcd_init()`                 | Inicializa el LCD en modo 4 bits y lo deja listo para recibir comandos y datos. |
-| `lcd_setCursor(fila, col)`   | Posiciona el cursor en la fila y columna indicadas.                         |
-| `lcd_escribir(string)`       | Escribe una cadena de texto en el LCD desde la posición actual del cursor.  |
-| `lcd_borrarPantalla()`       | Limpia toda la pantalla del LCD y posiciona el cursor en la esquina superior izquierda. |
-| `lcd_borrarFila(fila)`       | Borra una fila específica del LCD, rellenándola con espacios.               |
-| `lcd_borrarCaracter()`       | Borra el carácter en la posición actual del cursor (lo reemplaza por un espacio). |
-| `lcd_desplazarIzquierda()`   | Desplaza todo el contenido del LCD una posición a la izquierda.             |
-| `lcd_desplazarDerecha()`     | Desplaza todo el contenido del LCD una posición a la derecha.               |
-| `lcd_parpadearCursor()`      | Activa el parpadeo del cursor en la posición actual.                        |
-| `lcd_parpadearCursorOff()`   | Desactiva el parpadeo del cursor.                                           |
+Una plataforma de juegos arcade clásicos implementada en un microcontrolador **LPC1769** con soporte para control vía **joystick analógico** y **Bluetooth**. Incluye dos juegos clásicos: **Snake** y **Dino Chrome**, con audio digital y visualización en pantalla LCD.
 
 ---
 
-## 🔒 **Funciones privadas (internas, static)**
+## ✨ Características Principales
 
-Estas funciones solo se usan dentro de `lcd_i2c.c` para la implementación interna y no están disponibles fuera del módulo:
+### 🎮 Juegos Incluidos
+- **🐍 Snake Clásico:** Navega por la pantalla comiendo comida y evitando chocarte
+- **🦖 Dino Chrome:** Esquiva obstáculos en un mundo desértico arcade
 
-| Función                         | Descripción                                                                 |
-|----------------------------------|-----------------------------------------------------------------------------|
-| `i2c_enviarByte(dato)`          | Envía un byte por I2C al LCD. Bloquea hasta que la transferencia termina.   |
-| `lcd_pulso(dato)`               | Genera el pulso de habilitación necesario para que el LCD registre el dato. |
-| `lcd_enviarByte(dato, modo)`    | Envía un byte completo al LCD (modo comando o datos, nibble alto y bajo).   |
-| `lcd_enviarNibble(dato)`        | Envía solo 4 bits al LCD (usado en la inicialización).                      |
+### 🎵 Sonido
+- **Audio Digital DAC:** Generación de melodías en tiempo real con Timer0
+- **Aceleración DMA:** Transferencia automática de muestras de audio
+- **Múltiples Melodías:** Diferentes temas para cada pantalla/juego
 
----
+### 🕹️ Controles Duales
+- **Joystick Analógico:** Control físico en tiempo real (ADC de 12 bits)
+- **Bluetooth HC-05:** Control inalámbrico desde aplicación móvil
+- **Prioridad Automática:** El joystick físico se usa cuando no hay comandos Bluetooth
 
-## 📝 **Funcionamiento general**
+### 💻 Pantalla LCD
+- **Pantalla I2C LCD 16x2:** Visualización clara del juego y estado
+- **Interfaz de Menú:** Selección elegante entre juegos
 
-- Abstraer el manejo de bajo nivel del LCD por I2C, permitiendo al usuario inicializar el display, escribir texto, limpiar la pantalla, mover el cursor y controlar el parpadeo.
-- Las funciones privadas gestionan la comunicación I2C y la secuencia de pulsos y nibbles necesaria para que el LCD registre correctamente los comandos y datos.
-- El usuario solo necesita llamar a las funciones públicas desde su programa principal para interactuar con el LCD.
-
----
-
-> **Ejemplo de uso:**
-> ```c
-> lcd_init();
-> lcd_setCursor(0, 0);
-> lcd_escribir("Hola mundo!");
-> lcd_parpadearCursor();
-> ```
+### ⚡ Optimizaciones de Hardware
+- **DMA (Direct Memory Access):** Aceleración de comunicación UART y DAC
+- **Multitarea:** Manejo simultáneo de joystick, Bluetooth, audio y lógica de juego
+- **Interrupciones por Timer:** Sincronización precisa de eventos
 
 ---
 
-## 🛠️ Drivers I2C para LPC17xx
+## 🏗️ Arquitectura del Sistema
 
-`lpc17xx_i2c` provee funciones y estructuras para configurar y utilizar el periférico I2C en la LPC17xx. Permite operar en modo maestro y esclavo, enviar y recibir datos, y manejar interrupciones.
+### Hardware Utilizado
+```
+┌─────────────────────────────────────────┐
+│       LPC1769 ARM Cortex-M3             │
+├─────────────────────────────────────────┤
+│  - UART0: Comunicación Bluetooth (P0.2/3)
+│  - ADC:   Joystick analógico (P0.23/24)
+│  - DAC:   Audio (P0.26 - AOUT)          │
+│  - I2C:   Pantalla LCD (P0.0/1)         │
+│  - GPIO:  LEDs indicadores (P0.0,6-9)   │
+│  - Timer0/1: Sincronización y audio     │
+│  - DMA:   Aceleración RX y DAC          │
+└─────────────────────────────────────────┘
+```
 
----
-
-### 🔓 **Funciones públicas principales**
-
-| Función                                      | Descripción                                                                                   |
-|-----------------------------------------------|-----------------------------------------------------------------------------------------------|
-| `I2C_Init(I2Cx, clockrate)`                  | Inicializa el periférico I2C seleccionado (`I2Cx`) con la frecuencia deseada (`clockrate`).   |
-| `I2C_DeInit(I2Cx)`                           | Desinicializa el periférico I2C, dejándolo en estado de reset.                                |
-| `I2C_Cmd(I2Cx, NewState)`                    | Habilita o deshabilita el periférico I2C (`ENABLE`/`DISABLE`).                               |
-| `I2C_MasterTransferData(I2Cx, *cfg, opt)`    | Realiza una transferencia de datos en modo maestro. Permite enviar y/o recibir datos.         |
-| `I2C_SlaveTransferData(I2Cx, *cfg, opt)`     | Realiza una transferencia de datos en modo esclavo.                                           |
-| `I2C_MasterTransferComplete(I2Cx)`           | Indica si la transferencia en modo maestro ha finalizado.                                     |
-| `I2C_SlaveTransferComplete(I2Cx)`            | Indica si la transferencia en modo esclavo ha finalizado.                                     |
-| `I2C_IntCmd(I2Cx, NewState)`                 | Habilita o deshabilita las interrupciones del periférico I2C.                                 |
-| `I2C_MasterHandler(I2Cx)`                    | Rutina de atención de interrupción para transferencias en modo maestro.                       |
-| `I2C_SlaveHandler(I2Cx)`                     | Rutina de atención de interrupción para transferencias en modo esclavo.                       |
-| `I2C_SetOwnSlaveAddr(I2Cx, *cfg)`            | Configura la dirección de esclavo propia del periférico I2C.                                  |
-| `I2C_MonitorModeConfig(I2Cx, cfg, state)`    | Configura el modo monitor del I2C (para escuchar el bus).                                     |
-| `I2C_MonitorModeCmd(I2Cx, state)`            | Habilita o deshabilita el modo monitor.                                                       |
-| `I2C_MonitorGetDatabuffer(I2Cx)`             | Obtiene datos del buffer en modo monitor.                                                     |
-| `I2C_MonitorHandler(I2Cx, *buffer, size)`    | Rutina para manejar datos recibidos en modo monitor.                                          |
+### Periféricos Conectados
+- **HC-05 Bluetooth Module** (UART0 @ 9600 bps)
+- **Joystick Analógico** (2 ejes X/Y + botón)
+- **LCD 16x2 con interfaz I2C** (dirección 0x27)
+- **LEDs indicadores** (5 unidades: arriba/abajo/izq/der/botón)
 
 ---
 
-### 📝 **Descripción de uso**
+## 📦 Estructura del Proyecto
 
-- **Inicialización:**  
-  Usa `I2C_Init()` para configurar el periférico con la frecuencia deseada.  
-  Ejemplo:  
-  ```c
-  I2C_Init(LPC_I2C1, 100000); // Inicializa I2C1 a 100kHz
-  I2C_Cmd(LPC_I2C1, ENABLE);  // Habilita I2C1
-  ```
-
----
-
-## 🧩 Estructuras principales de los drivers I2C
-
-Estas estructuras se utilizan para configurar y controlar las transferencias I2C en modo maestro y esclavo, y para definir la dirección propia del periférico cuando opera como esclavo.
-
----
-
-### `I2C_M_SETUP_Type`  
-**Estructura para transferencias en modo maestro.**
-
-| Campo                   | Descripción                                                                                   |
-|-------------------------|-----------------------------------------------------------------------------------------------|
-| `sl_addr7bit`           | Dirección del esclavo en 7 bits.                                                              |
-| `tx_data`               | Puntero al buffer de datos a transmitir.                                                      |
-| `tx_length`             | Cantidad de bytes a transmitir.                                                               |
-| `tx_count`              | Contador interno de bytes transmitidos.                                                       |
-| `rx_data`               | Puntero al buffer de datos a recibir.                                                         |
-| `rx_length`             | Cantidad de bytes a recibir.                                                                  |
-| `rx_count`              | Contador interno de bytes recibidos.                                                          |
-| `retransmissions_max`   | Número máximo de reintentos en caso de error.                                                 |
-| `retransmissions_count` | Contador interno de reintentos realizados.                                                    |
-| `status`                | Estado actual de la transferencia (códigos de error, éxito, etc).                             |
-| `callback`              | Puntero a función callback que se ejecuta al finalizar la transferencia (modo interrupción).  |
-
----
-
-### `I2C_S_SETUP_Type`  
-**Estructura para transferencias en modo esclavo.**
-
-| Campo       | Descripción                                                                                   |
-|-------------|-----------------------------------------------------------------------------------------------|
-| `tx_data`   | Puntero al buffer de datos a transmitir al maestro.                                           |
-| `tx_length` | Cantidad de bytes a transmitir.                                                               |
-| `tx_count`  | Contador interno de bytes transmitidos.                                                       |
-| `rx_data`   | Puntero al buffer de datos a recibir del maestro.                                             |
-| `rx_length` | Cantidad de bytes a recibir.                                                                  |
-| `rx_count`  | Contador interno de bytes recibidos.                                                          |
-| `status`    | Estado actual de la transferencia (códigos de error, éxito, etc).                             |
-| `callback`  | Puntero a función callback que se ejecuta al finalizar la transferencia (modo interrupción).  |
+```
+SNAKE---LPC1769/
+├── include/                          # Headers públicos
+│   ├── bluetooth_uart.h             # Driver Bluetooth con DMA
+│   ├── melodias_dac.h               # Sistema de melodías
+│   ├── joystick_adc.h               # Lectura joystick (ADC)
+│   ├── lcd_i2c.h                    # Control pantalla LCD
+│   ├── snake_game.h                 # Lógica juego Snake
+│   ├── dino_game.h                  # Lógica juego Dino
+│   └── menu_juegos.h                # Sistema de menú
+│
+├── src/                              # Implementaciones
+│   ├── bluetooth_uart.c             # [CON DMA] RX automático (canal 0)
+│   ├── melodias_dac.c               # [CON DMA] Transferencia samples (canal 1)
+│   ├── dma_handlers.c               # [NUEVO] Manejador centralizado DMA
+│   ├── joystick_adc.c
+│   ├── lcd_i2c.c
+│   ├── snake_game.c
+│   ├── dino_game.c
+│   ├── menu_juegos.c
+│   └── main.c                       # Punto de entrada
+│
+├── CMSISv2p00_LPC17xx/              # Drivers del fabricante
+│   ├── inc/                         # Headers CMSIS (core, LPC17xx)
+│   ├── Drivers/                     # Drivers periféricos
+│   │   └── src/lpc17xx_gpdma.c      # Controlador DMA
+│   └── src/                         # Implementación CMSIS
+│
+├── docs/                             # Documentación
+│   ├── BLUETOOTH_README.md
+│   ├── JOYSTICK_README.md
+│   ├── MENU_SISTEMA_README.md
+│   └── I2C.md
+│
+├── DMA_IMPLEMENTATION.md             # Documentación técnica DMA
+├── DMA_BUILD_NOTES.txt               # Notas de compilación
+└── README.md                         # Este archivo
+```
 
 ---
 
-### `I2C_OWNSLAVEADDR_CFG_Type`  
-**Estructura para configurar la dirección propia del periférico I2C en modo esclavo.**
+## 🚀 Guía de Inicio Rápido
 
-| Campo               | Descripción                                                                                   |
-|---------------------|-----------------------------------------------------------------------------------------------|
-| `SlaveAddrChannel`  | Canal de dirección de esclavo (0 a 3).                                                        |
-| `SlaveAddr_7bit`    | Valor de la dirección de esclavo en 7 bits.                                                   |
-| `GeneralCallState`  | Habilita o deshabilita la función "General Call" (aceptar mensajes a todos los esclavos).     |
-| `SlaveAddrMaskValue`| Máscara de bits para comparar la dirección recibida con la propia (permite ignorar ciertos bits). |
+### Requisitos
+- **Compilador ARM:** `arm-none-eabi-gcc`
+- **Hardware:** LPC1769 con periféricos mencionados
+- **Entorno:** MCUXpresso IDE
 
+
+
+
+
+### Ejecución
+1. Alimentar el LPC1769
+2. Seleccionar juego en pantalla LCD con joystick
+3. Controlar con **joystick físico** O **comandos Bluetooth**
+
+### Comandos Bluetooth (HC-05 @ 9600 bps)
+```
+W/w → Arriba
+S/s → Abajo
+A/a → Izquierda
+D/d → Derecha
+B/b → Botón
+P/p → Pausa/Reintentar
+```
+
+---
+
+## 🎯 Funciones Públicas Principales
+
+### Bluetooth
+```c
+void bt_inicializar(void);                    // Iniciar UART0 + DMA
+int bt_leer_caracter_no_bloqueante(void);    // Leer desde buffer DMA
+void bt_procesar_comandos(void);              // Procesar comandos Bluetooth
+uint16_t bt_obtener_x_simulado(void);        // Eje X simulado (0-4095)
+uint16_t bt_obtener_y_simulado(void);        // Eje Y simulado (0-4095)
+uint8_t bt_obtener_comando_boton(void);      // Estado botón (0/1)
+void bt_escribir_cadena(const char *cadena); // Enviar texto
+```
+
+### Joystick
+```c
+void joystick_inicializar(void);              // Iniciar ADC y LEDs
+void joystick_actualizar(void);               // Leer joystick y actualizar
+uint16_t joystick_leer_adc(uint8_t canal);   // Lectura ADC cruda
+uint8_t joystick_boton_presionado(void);     // Estado botón físico
+```
+
+### Melodías
+```c
+void melodias_inicializar(void);              // Iniciar DAC + Timer + DMA
+void melodias_iniciar(const Nota *melodia);  // Reproducir melodía una vez
+void melodias_iniciar_loop(const Nota *m);   // Reproducir en loop
+void melodias_detener(void);                  // Parar reproducción
+void melodias_actualizar(void);               // Avanzar notas (llamar en main loop)
+uint8_t melodias_esta_sonando(void);         // ¿Reproduciendo?
+```
+
+### Pantalla LCD
+```c
+void lcd_inicializar(void);                   // Iniciar I2C y LCD
+void lcd_escribir_linea(uint8_t linea, const char *texto);
+void lcd_borrar_pantalla(void);
+void lcd_cursor_inicio(void);
+```
+
+---
+
+## 🔧 Implementación DMA
+
+El proyecto incluye **soporte DMA completamente funcional** en dos módulos:
+
+### 📡 Bluetooth RX (Canal DMA 0)
+- **Tipo:** P2M (Periférico → Memoria)
+- **Conexión:** GPDMA_UART0_Rx
+- **Buffer:** 128 bytes ring buffer
+- **Ventaja:** Recepción automática sin polling
+
+### 🎵 Melodías DAC (Canal DMA 1)
+- **Tipo:** M2P (Memoria → Periférico)
+- **Conexión:** GPDMA_DAC
+- **Fuente:** Tabla triangular en RAM (64 muestras)
+- **Ventaja:** Transferencia automática de samples
+
+### Manejador Centralizado (`dma_handlers.c`)
+```c
+void GPDMA_IRQHandler(void);  // ISR único que despacha ambos canales
+  ├─ bt_dma_on_transfer_complete()      // Callback Bluetooth
+  └─ melodias_dma_on_transfer_complete() // Callback Melodías
+```
+
+
+
+---
+
+## 📊 Características Avanzadas
+
+### Prioridad de Entrada
+1. **Bluetooth activo** → Usar valores simulados del joystick
+2. **Joystick en centro** → Leer ADC del joystick físico
+3. **Automático** → Cambio transparente sin intervención
+
+### LEDs Indicadores
+| Pin  | Función |
+|------|---------|
+| P0.9 | Arriba |
+| P0.8 | Abajo |
+| P0.7 | Izquierda |
+| P0.6 | Derecha |
+| P0.0 | Botón/Centro |
+
+### Melodías Predefinidas
+- `melodia_mario` - Tema clásico Nintendo
+- `melodia_tetris` - Tema Tetris
+- `melodia_nokia` - Timbre Nokia retro
+- `melodia_game_over` - Sonido derrota
+- `melodia_salto` - Efecto salto
+- `melodia_fondo` - Música ambiente prolongada
+
+---
+
+## 🔌 Configuración de Pines
+
+### UART0 (Bluetooth)
+| Pin | Función | Config |
+|-----|---------|--------|
+| P0.2 | TXD0 | PINSEL=01 |
+| P0.3 | RXD0 | PINSEL=01 |
+
+### ADC (Joystick)
+| Pin | Función | Canal |
+|-----|---------|-------|
+| P0.23 | VRx | AD0.0 |
+| P0.24 | VRy | AD0.1 |
+| P2.10 | Botón | GPIO INT |
+
+### DAC (Audio)
+| Pin | Función |
+|-----|---------|
+| P0.26 | AOUT (DAC) |
+
+### I2C (LCD)
+| Pin | Función |
+|-----|---------|
+| P0.27 | SCL |
+| P0.28 | SDA |
+
+### LEDs
+| Pin | Función |
+|-----|---------|
+| P0.0 | Botón/Centro |
+| P0.6 | Derecha |
+| P0.7 | Izquierda |
+| P0.8 | Abajo |
+| P0.9 | Arriba |
+
+---
+
+## 📖 Documentación Adicional
+
+- **`docs/BLUETOOTH_README.md`** - Detalles de integración HC-05
+- **`docs/JOYSTICK_README.md`** - Calibración y uso del joystick
+- **`docs/MENU_SISTEMA_README.md`** - Sistema de menú
+- **`docs/I2C.md`** - Comunicación con LCD
+
+
+---
