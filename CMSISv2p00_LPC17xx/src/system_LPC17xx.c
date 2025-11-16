@@ -288,6 +288,10 @@
 #define PLL1_SETUP            1
 #define PLL1CFG_Val           0x00000023
 #define CCLKCFG_Val           0x00000003
+#define PLL0CFG_Val           0x00050063 //M multiplicador pll
+#define PLL1_SETUP            1
+#define PLL1CFG_Val           0x00000023
+#define CCLKCFG_Val           0x00000003//n divisor pll
 #define USBCLKCFG_Val         0x00000000
 #define PCLKSEL0_Val          0x00000000
 #define PCLKSEL1_Val          0x00000000

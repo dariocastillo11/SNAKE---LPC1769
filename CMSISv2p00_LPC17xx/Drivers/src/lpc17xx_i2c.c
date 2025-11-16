@@ -111,6 +111,27 @@ static int32_t I2C_getNum(LPC_I2C_TypeDef *I2Cx){
     return (-1);
 }
 
+/**
+ * @brief (ES) Manejador general de interrupciones en modo esclavo para el
+ *              periférico I2C.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @return Ninguno
+ */
+
+
+/**
+ * @brief (ES) Convierte del periférico I2C a su número index
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @return Número del I2C, puede ser: 0..2 (o -1 si no es válido)
+ */
+
+
 /********************************************************************//**
  * @brief        Generate a start condition on I2C bus (in master mode only)
  * @param[in]    I2Cx: I2C peripheral selected, should be:
@@ -129,6 +150,16 @@ static uint32_t I2C_Start (LPC_I2C_TypeDef *I2Cx)
     I2Cx->I2CONCLR = I2C_I2CONCLR_STAC;
     return (I2Cx->I2STAT & I2C_STAT_CODE_BITMASK);
 }
+
+/**
+ * @brief (ES) Genera una condición START en el bus I2C (modo maestro solamente).
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @return Valor del registro de estado I2C tras generar la condición START.
+ */
+
 
 /********************************************************************//**
  * @brief        Generate a stop condition on I2C bus (in master mode only)
@@ -149,6 +180,16 @@ static void I2C_Stop (LPC_I2C_TypeDef *I2Cx)
     I2Cx->I2CONSET = I2C_I2CONSET_STO;
     I2Cx->I2CONCLR = I2C_I2CONCLR_SIC;
 }
+
+/**
+ * @brief (ES) Genera una condición STOP en el bus I2C (modo maestro solamente).
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @return Ninguno
+ */
+
 
 /********************************************************************//**
  * @brief        Send a byte
@@ -172,6 +213,17 @@ static uint32_t I2C_SendByte (LPC_I2C_TypeDef *I2Cx, uint8_t databyte)
     while (!(I2Cx->I2CONSET & I2C_I2CONSET_SI));
     return (I2Cx->I2STAT & I2C_STAT_CODE_BITMASK);
 }
+
+/**
+ * @brief (ES) Envía un byte por el bus I2C.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @param[in] databyte: byte a enviar
+ * @return Valor del registro de estado I2C después del envío.
+ */
+
 
 /********************************************************************//**
  * @brief        Get a byte
@@ -199,6 +251,18 @@ static uint32_t I2C_GetByte (LPC_I2C_TypeDef *I2Cx, uint8_t *retdat, Bool ack)
     *retdat = (uint8_t) (I2Cx->I2DAT & I2C_I2DAT_BITMASK);
     return (I2Cx->I2STAT & I2C_STAT_CODE_BITMASK);
 }
+
+/**
+ * @brief (ES) Recibe un byte del bus I2C.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @param[out] retdat: puntero donde se almacenará el byte recibido
+ * @param[in] ack: indicar si se debe devolver ACK (TRUE) o NACK (FALSE)
+ * @return Valor del registro de estado I2C después de la recepción.
+ */
+
 
 /*********************************************************************//**
  * @brief         Setup clock rate for I2C peripheral
@@ -233,6 +297,17 @@ static void I2C_SetClock (LPC_I2C_TypeDef *I2Cx, uint32_t target_clock)
     I2Cx->I2SCLH = (uint32_t)(temp / 2);
     I2Cx->I2SCLL = (uint32_t)(temp - I2Cx->I2SCLH);
 }
+
+/**
+ * @brief (ES) Configura la tasa de reloj para el periférico I2C.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @param[in] target_clock: frecuencia deseada para el I2C (Hz)
+ * @return Ninguno
+ */
+
 /* End of Private Functions --------------------------------------------------- */
 
 
@@ -290,6 +365,18 @@ void I2C_Init(LPC_I2C_TypeDef *I2Cx, uint32_t clockrate)
     I2Cx->I2CONCLR = (I2C_I2CONCLR_AAC | I2C_I2CONCLR_STAC | I2C_I2CONCLR_I2ENC);
 }
 
+/**
+ * @brief (ES) Inicializa el periférico I2Cx con los parámetros especificados.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @param[in] clockrate: Valor de la frecuencia objetivo para inicializar el
+ *            periférico I2C (Hz)
+ * @return Ninguno
+ */
+
+
 /*********************************************************************//**
  * @brief        De-initializes the I2C peripheral registers to their
  *                  default reset values.
@@ -323,6 +410,17 @@ void I2C_DeInit(LPC_I2C_TypeDef* I2Cx)
     }
 }
 
+/**
+ * @brief (ES) Desinicializa los registros del periférico I2C a sus valores
+ *              por defecto de reset.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @return Ninguno
+ */
+
+
 /*********************************************************************//**
  * @brief        Enable or disable I2C peripheral's operation
  * @param[in]    I2Cx I2C peripheral selected, should be
@@ -346,6 +444,17 @@ void I2C_Cmd(LPC_I2C_TypeDef* I2Cx, FunctionalState NewState)
         I2Cx->I2CONCLR = I2C_I2CONCLR_I2ENC;
     }
 }
+
+/**
+ * @brief (ES) Habilita o deshabilita la operación del periférico I2C.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @param[in] NewState: Nuevo estado del periférico (ENABLE/DISABLE)
+ * @return Ninguno
+ */
+
 
 /*********************************************************************//**
  * @brief         Enable/Disable interrupt for I2C peripheral
@@ -393,6 +502,19 @@ void I2C_IntCmd (LPC_I2C_TypeDef *I2Cx, Bool NewState)
     }
     return;
 }
+
+/**
+ * @brief (ES) Habilita/Deshabilita la interrupción para el periférico I2C
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @param[in] NewState: Nuevo estado de la interrupción en el NVIC
+ *                 - ENABLE: habilita la interrupción
+ *                 - DISABLE: deshabilita la interrupción
+ * @return Ninguno
+ */
+
 
 
 /*********************************************************************//**
@@ -597,6 +719,16 @@ end_stage:
         }
     }
 }
+
+/**
+ * @brief (ES) Manejador de interrupciones maestro para el periférico I2C.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @return Ninguno
+ */
+
 
 
 /*********************************************************************//**
@@ -949,6 +1081,25 @@ error:
     return ERROR;
 }
 
+/**
+ * @brief (ES) Transmite y recibe datos en modo maestro.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @param[in] TransferCfg: Puntero a una estructura I2C_M_SETUP_Type que contiene
+ *            la configuración para la transferencia en modo maestro.
+ * @param[in] Opt: Opción I2C_TRANSFER_OPT_Type que selecciona modo por
+ *            interrupción o polling.
+ * @return SUCCESS o ERROR
+ *
+ * Nota:
+ * - Para transmisión sólo: establecer tx_length = 0 o tx_data = NULL.
+ * - Para recepción sólo: establecer rx_length = 0 o rx_data = NULL.
+ * - Para transmitir seguido de recibir: ajustar tx_length/tx_data y rx_length/rx_data.
+ */
+
+
 /*********************************************************************//**
  * @brief         Receive and Transmit data in slave mode
  * @param[in]    I2Cx            I2C peripheral selected, should be
@@ -1159,6 +1310,23 @@ s_error:
     return ERROR;
 }
 
+/**
+ * @brief (ES) Recibe y transmite datos en modo esclavo.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @param[in] TransferCfg: Puntero a I2C_S_SETUP_Type con la configuración de transferencia.
+ * @param[in] Opt: Opción I2C_TRANSFER_OPT_Type (interrupción o polling).
+ * @return SUCCESS o ERROR
+ *
+ * Nota: El modo de operación depende del comando enviado por el maestro.
+ * - En SLA+W se usan los campos de recepción.
+ * - En SLA+R se usan los campos de transmisión.
+ * Se usa un tiempo de espera para distinguir STOP y REPEATED START en modo esclavo.
+ */
+
+
 /*********************************************************************//**
  * @brief        Set Own slave address in I2C peripheral corresponding to
  *                 parameter specified in OwnSlaveAddrConfigStruct.
@@ -1205,6 +1373,19 @@ void I2C_SetOwnSlaveAddr(LPC_I2C_TypeDef *I2Cx, I2C_OWNSLAVEADDR_CFG_Type *OwnSl
     }
 }
 
+/**
+ * @brief (ES) Configura la dirección esclava propia en el periférico I2C
+ *        según la información en OwnSlaveAddrConfigStruct.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @param[in] OwnSlaveAddrConfigStruct: puntero a I2C_OWNSLAVEADDR_CFG_Type
+ *            con la configuración de la dirección esclava.
+ * @return Ninguno
+ */
+
+
 
 /*********************************************************************//**
  * @brief        Configures functionality in I2C monitor mode
@@ -1240,6 +1421,23 @@ void I2C_MonitorModeConfig(LPC_I2C_TypeDef *I2Cx, uint32_t MonitorCfgType, Funct
     }
 }
 
+/**
+ * @brief (ES) Configura funcionalidades en el modo monitor del I2C.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @param[in] MonitorCfgType: Tipo de configuración de monitor, puede ser:
+ *                 - I2C_MONITOR_CFG_SCL_OUTPUT: el módulo I2C puede 'estirar'
+ *                   la línea de reloj (mantenerla baja) hasta responder a la IRQ.
+ *                 - I2C_MONITOR_CFG_MATCHALL: cuando está activado y el I2C
+ *                   está en modo monitor, se genera una interrupción en cualquier
+ *                   dirección recibida.
+ * @param[in] NewState: ENABLE para activar o DISABLE para desactivar.
+ * @return Ninguno
+ */
+
+
 
 /*********************************************************************//**
  * @brief        Enable/Disable I2C monitor mode
@@ -1271,6 +1469,17 @@ void I2C_MonitorModeCmd(LPC_I2C_TypeDef *I2Cx, FunctionalState NewState)
     I2C_MonitorBufferIndex = 0;
 }
 
+/**
+ * @brief (ES) Habilita/Deshabilita el modo monitor del I2C.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @param[in] NewState: ENABLE para habilitar, DISABLE para deshabilitar.
+ * @return Ninguno
+ */
+
+
 
 /*********************************************************************//**
  * @brief        Get data from I2C data buffer in monitor mode.
@@ -1292,6 +1501,20 @@ uint8_t I2C_MonitorGetDatabuffer(LPC_I2C_TypeDef *I2Cx)
     CHECK_PARAM(PARAM_I2Cx(I2Cx));
     return ((uint8_t)(I2Cx->I2DATA_BUFFER));
 }
+
+/**
+ * @brief (ES) Obtiene datos del buffer de datos I2C en modo monitor.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @return Valor de 8 bits leído del buffer de monitor.
+ *
+ * Nota: En modo monitor, si no se activa ENA_SCL el módulo puede perder la
+ * capacidad de estirar el reloj; el procesador tiene tiempo limitado para
+ * leer los datos antes de que sean sobrescritos.
+ */
+
 
 /*********************************************************************//**
  * @brief        Get data from I2C data buffer in monitor mode.
@@ -1322,6 +1545,19 @@ BOOL_8 I2C_MonitorHandler(LPC_I2C_TypeDef *I2Cx, uint8_t *buffer, uint32_t size)
     }
     return ret;
 }
+
+/**
+ * @brief (ES) Manejador de datos en modo monitor: copia un byte desde el buffer
+ *              hardware al buffer de software proporcionado.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @param[out] buffer: puntero al buffer donde almacenar los bytes monitorizados
+ * @param[in] size: tamaño del buffer en bytes
+ * @return TRUE si el buffer alcanza su tamaño, FALSE en caso contrario
+ */
+
 /*********************************************************************//**
  * @brief         Get status of Master Transfer
  * @param[in]    I2Cx    I2C peripheral selected, should be:
@@ -1341,6 +1577,18 @@ uint32_t I2C_MasterTransferComplete(LPC_I2C_TypeDef *I2Cx)
     return retval;
 }
 
+/**
+ * @brief (ES) Obtiene el estado de la transferencia en modo maestro.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @return Estado de la transferencia maestro, puede ser:
+ *         - TRUE: la transferencia maestro ha finalizado
+ *         - FALSE: la transferencia maestro no ha finalizado aún
+ */
+
+
 /*********************************************************************//**
  * @brief         Get status of Slave Transfer
  * @param[in]    I2Cx    I2C peripheral selected, should be:
@@ -1357,6 +1605,16 @@ uint32_t I2C_SlaveTransferComplete(LPC_I2C_TypeDef *I2Cx)
     I2C_SlaveComplete[tmp] = FALSE;
     return retval;
 }
+
+/**
+ * @brief (ES) Obtiene el estado de la transferencia en modo esclavo.
+ * @param[in] I2Cx: Periférico I2C seleccionado, debe ser:
+ *                 - LPC_I2C0
+ *                 - LPC_I2C1
+ *                 - LPC_I2C2
+ * @return Estado de finalización: TRUE/FALSE
+ */
+
 
 
 

@@ -18,6 +18,12 @@
  */
 
 /* Peripheral group ----------------------------------------------------------- */
+ *
+ * @par Refactor:
+ * Date: 01/08/2025, Author: David Trujillo Medina
+ */
+
+/* ---------------------------- Peripheral group ---------------------------- */
 /** @defgroup TIM TIM
  * @ingroup LPC1700CMSIS_FwLib_Drivers
  * @{
@@ -27,6 +33,10 @@
 #define __LPC17XX_TIMER_H_
 
 /* Includes ------------------------------------------------------------------- */
+#ifndef LPC17XX_TIMER_H_
+#define LPC17XX_TIMER_H_
+
+/* -------------------------------- Includes -------------------------------- */
 #include "LPC17xx.h"
 #include "lpc_types.h"
 
@@ -113,6 +123,86 @@ extern "C"
  */
 
 /* Public Types --------------------------------------------------------------- */
+extern "C" {
+#endif
+
+/* ----------------------------- Private Macros ----------------------------- */
+/** @defgroup TIM_Private_Macros TIM Private Macros
+ * @{
+ */
+/* ------------------------ MACROS MASKS DEFINITIONS ------------------------ */
+/** TCR register mask. */
+#define TIM_TCR_MASKBIT            ((uint32_t)(3))
+/** MCR register mask. */
+#define TIM_MCR_MASKBIT            ((uint32_t)(0x0FFF))
+/** MCR register channel mask bit. */
+#define TIM_MCR_CHANNEL_MASKBIT(n) ((uint32_t)(7 << (n * 3)))
+/** CCR register mask. */
+#define TIM_CCR_MASKBIT            ((uint32_t)(0x3F))
+/** CCR register channel mask bit. */
+#define TIM_CCR_CHANNEL_MASKBIT(n) ((uint32_t)(7 << (n * 3)))
+/** EMR register mask. */
+#define TIM_EMR_MASKBIT            ((0x0FFF))
+/** EMR register channel external control mask bit. */
+#define TIM_EMR_MASK(n)            (_SBF(((n << 1) + 4), 0x03))
+/** CTCR register mask. */
+#define TIM_CTCR_MASKBIT           ((0xF))
+/** CTCR register mode mask. */
+#define TIM_CTCR_MODE_MASK         ((0x3))
+/** CTCR register count input select mask. */
+#define TIM_CTCR_INPUT_MASK        ((0xC))
+
+/* ------------------------- MACROS BIT DEFINITIONS ------------------------- */
+/** Timer/counter enable bit. */
+#define TIM_ENABLE            ((uint32_t)(1 << 0))
+/** Timer/counter reset bit. */
+#define TIM_RESET             ((uint32_t)(1 << 1))
+/** Interrupt flag bit. */
+#define TIM_IR_CLR(n)         (_BIT(n))
+/** Interrupt flag bit for match register n. */
+#define TIM_MATCH_INT(n)      (_BIT(n & 0x0F))
+/** Interrupt flag bit for capture register n. */
+#define TIM_CAP_INT(n)        (_BIT(((n & 0x0F) + 4)))
+/** Interrupt on match for match register n. */
+#define TIM_INT_ON_MATCH(n)   (_BIT((n * 3)))
+/** Reset on match for match register n. */
+#define TIM_RESET_ON_MATCH(n) (_BIT(((n * 3) + 1)))
+/** Stop on match for match register n. */
+#define TIM_STOP_ON_MATCH(n)  (_BIT(((n * 3) + 2)))
+/** Capture channel n on CRx rising edge. */
+#define TIM_CAP_RISING(n)     (_BIT((n * 3)))
+/** Capture channel n on CRx falling edge. */
+#define TIM_CAP_FALLING(n)    (_BIT(((n * 3) + 1)))
+/** Interrupt on capture channel n. */
+#define TIM_INT_ON_CAP(n)     (_BIT(((n * 3) + 2)))
+/** Mask bit for rising and falling edge bit. */
+#define TIM_EDGE_MASK(n)      (_SBF((n * 3), 0x03))
+/** Mask bit for match channel n. */
+#define TIM_EM(n)             (_BIT(n))
+/** Output state change of MAT.n when external match happens: no change. */
+#define TIM_EM_NOTHING        ((uint8_t)(0x0))
+/** Output state change of MAT.n when external match happens: low. */
+#define TIM_EM_LOW            ((uint8_t)(0x1))
+/** Output state change of MAT.n when external match happens: high. */
+#define TIM_EM_HIGH           ((uint8_t)(0x2))
+/** Output state change of MAT.n when external match happens: toggle. */
+#define TIM_EM_TOGGLE         ((uint8_t)(0x3))
+/** Macro for setting for the MAT.n change state bits. */
+#define TIM_EM_SET(n, s)      (_SBF(((n << 1) + 4), (s & 0x03)))
+/** Counter mode bit. */
+#define TIM_COUNTER_MODE      ((uint8_t)(1))
+
+/* ---------------------- CHECK PARAMETER DEFINITIONS ----------------------- */
+/** Check TIMER parameter. */
+#define PARAM_TIMx(n)                                                                      \
+    (((uintptr_t)(n) == (uintptr_t)LPC_TIM0) || ((uintptr_t)(n) == (uintptr_t)LPC_TIM1) || \
+     ((uintptr_t)(n) == (uintptr_t)LPC_TIM2) || ((uintptr_t)(n) == (uintptr_t)LPC_TIM3))
+
+/**
+ * @}
+ */
+
+/* ------------------------------ Public Types ------------------------------ */
 /** @defgroup TIM_Public_Types TIM Public Types
  * @{
  */
@@ -130,6 +220,9 @@ typedef enum {
 } TIM_INT_TYPE;
 /** Check TIMER interrupt type parameter. */
 #define PARAM_TIM_INT_TYPE(TYPE)            ((TYPE) >= TIM_MR0_INT && (TYPE) <= TIM_CR1_INT)
+} TIM_INT;
+/** Check TIMER interrupt type parameter. */
+#define PARAM_TIM_INT(INT) ((INT) >= TIM_MR0_INT && (INT) <= TIM_CR1_INT)
 
 /**
  * @brief Timer/counter operating mode.
@@ -142,6 +235,9 @@ typedef enum {
 } TIM_MODE_OPT;
 /** Check TIMER mode option parameter. */
 #define PARAM_TIM_MODE_OPT(MODE)            ((MODE) >= TIM_TIMER_MODE && (MODE) <= TIM_COUNTER_ANY_MODE)
+} TIM_MODE;
+/** Check TIMER mode option parameter. */
+#define PARAM_TIM_MODE(MODE) ((MODE) >= TIM_TIMER_MODE && (MODE) <= TIM_COUNTER_ANY_MODE)
 
 /**
  * @brief Timer/Counter prescale option.
@@ -152,6 +248,9 @@ typedef enum {
 } TIM_PRESCALE_OPT;
 /** Check TIMER prescale option parameter. */
 #define PARAM_TIM_PRESCALE_OPT(OPT)         ((OPT == TIM_TICKVAL) || (OPT == TIM_USVAL))
+} TIM_PRESCALE;
+/** Check TIMER prescale option parameter. */
+#define PARAM_TIM_PRESCALE(PS) ((PS == TIM_TICKVAL) || (PS == TIM_USVAL))
 
 /**
  * @brief Timer/Counter external match option.
@@ -164,6 +263,7 @@ typedef enum {
 } TIM_EXTMATCH_OPT;
 /** Check TIMER external match option parameter. */
 #define PARAM_TIM_EXTMATCH_OPT(OPT)         ((OPT) >= TIM_NOTHING && (OPT) <= TIM_TOGGLE)
+#define PARAM_TIM_EXTMATCH_OPT(EM) ((EM) >= TIM_NOTHING && (EM) <= TIM_TOGGLE)
 
 /**
  * @brief Timer/counter capture mode options.
@@ -176,6 +276,9 @@ typedef enum {
 } TIM_CAP_MODE_OPT;
 /** Check TIMER capture mode option parameter. */
 #define PARAM_TIM_CAP_MODE_OPT(OPT)         ((OPT) >= TIM_NONE && (OPT) <= TIM_ANY)
+} TIM_CAP_MODE;
+/** Check TIMER capture mode option parameter. */
+#define PARAM_TIM_CAP_MODE(MODE) ((MODE) >= TIM_NONE && (MODE) <= TIM_ANY)
 
 /**
  *@brief Match channel enum and parameter macro
@@ -187,6 +290,13 @@ typedef enum {
     TIM_MATCH_CHANNEL_3
 } TIM_MATCH_CHANNEL_OPT;
 #define PARAM_TIM_MATCH_CHANNEL(CH) ((CH) >= TIM_MATCH_CHANNEL_0 && (CH) <= TIM_MATCH_CHANNEL_3)
+    TIM_MATCH_0 = 0,
+    TIM_MATCH_1,
+    TIM_MATCH_2,
+    TIM_MATCH_3
+} TIM_MATCH_CHANNEL;
+/** Check TIMER match channel option parameter. */
+#define PARAM_TIM_MATCH_CHANNEL(CH) ((CH) >= TIM_MATCH_0 && (CH) <= TIM_MATCH_3)
 
 /**
  * @brief Capture channel enum and parameter macro
@@ -196,6 +306,41 @@ typedef enum {
     TIM_CAPTURE_CHANNEL_1
 } TIM_CAPTURE_CHANNEL_OPT;
 #define PARAM_TIM_CAPTURE_CHANNEL(CH) (((CH) >= TIM_CAPTURE_CHANNEL_0) && ((CH) <= TIM_CAPTURE_CHANNEL_1))
+    TIM_CAPTURE_0 = 0,
+    TIM_CAPTURE_1
+} TIM_CAPTURE_CHANNEL;
+/** Check TIMER capture channel option parameter. */
+#define PARAM_TIM_CAPTURE_CHANNEL(CH) (((CH) >= TIM_CAPTURE_0) && ((CH) <= TIM_CAPTURE_1))
+
+/**
+ * @brief Timer pin selection options.
+ */
+typedef enum {
+    TIM_CAP0_0_P1_26 = 0,
+    TIM_CAP0_1_P1_27,
+    TIM_MAT0_0_P1_28,
+    TIM_MAT0_0_P3_25,
+    TIM_MAT0_1_P1_29,
+    TIM_MAT0_1_P3_26,
+    TIM_CAP1_0_P1_18,
+    TIM_CAP1_1_P1_19,
+    TIM_MAT1_0_P1_22,
+    TIM_MAT1_1_P1_25,
+    TIM_CAP2_0_P0_4,
+    TIM_CAP2_1_P0_5,
+    TIM_MAT2_0_P0_6,
+    TIM_MAT2_0_P4_28,
+    TIM_MAT2_1_P0_7,
+    TIM_MAT2_1_P4_29,
+    TIM_MAT2_2_P0_8,
+    TIM_MAT2_3_P0_9,
+    TIM_CAP3_0_P0_23,
+    TIM_CAP3_1_P0_24,
+    TIM_MAT3_0_P0_10,
+    TIM_MAT3_1_P0_11
+} TIM_PIN_OPTION;
+/** Check TIMER pin option parameter. */
+#define PARAM_TIM_PIN_OPTION(OPT) ((OPT >= TIM_CAP0_0_P1_26) && (OPT <= TIM_MAT3_1_P0_11))
 
 /**
  * @brief Timer configuration structure for TIMER mode.
@@ -205,6 +350,10 @@ typedef struct {
                                         - TIM_TICKVAL : Absolute value.
                                         - TIM_USVAL   : Value in microseconds. */
     uint32_t            prescaleValue;  /**< Prescale max value. */
+    TIM_PRESCALE prescaleOption; /**< Should be:
+                                 - TIM_TICKVAL : Absolute value.
+                                 - TIM_USVAL   : Value in microseconds. */
+    uint32_t prescaleValue;      /**< Prescale max value. */
 } TIM_TIMERCFG_Type;
 
 /**
@@ -214,6 +363,9 @@ typedef struct {
     TIM_CAPTURE_CHANNEL_OPT countInputSelect;   /**< Should be:
                                                 - TIM_CAPTURE_CHANNEL_0 : CAPn.0 input pin for TIMERn.
                                                 - TIM_CAPTURE_CHANNEL_1 : CAPn.1 input pin for TIMERn. */
+    TIM_CAPTURE_CHANNEL countInputSelect; /**< Should be:
+                                          - TIM_CAPTURE_0 : CAPn.0 input pin for TIMERn.
+                                          - TIM_CAPTURE_1 : CAPn.1 input pin for TIMERn. */
 } TIM_COUNTERCFG_Type;
 
 /**
@@ -236,6 +388,22 @@ typedef struct {
                                                 - TIM_HIGH    : Force external output pin to high if matched.
                                                 - TIM_TOGGLE  : Toggle external output pin if matched. */
     uint32_t                matchValue;         /**< Match value to compare with timer counter. */
+    TIM_MATCH_CHANNEL matchChannel;      /**< TIM_MATCH_CHANNEL_x [0...3]. */
+    FunctionalState intOnMatch;          /**< Should be:
+                                         - ENABLE  : Enable interrupt on match.
+                                         - DISABLE : Disable interrupt on match. */
+    FunctionalState stopOnMatch;         /**< Should be:
+                                         - ENABLE  : Stop timer on match.
+                                         - DISABLE : Do not stop timer on match. */
+    FunctionalState resetOnMatch;        /**< Should be:
+                                         - ENABLE  : Reset timer on match.
+                                         - DISABLE : Do not reset timer on match. */
+    TIM_EXTMATCH_OPT extMatchOutputType; /**< Should be:
+                                         - TIM_NOTHING : Do nothing for external output pin if matched.
+                                         - TIM_LOW     : Force external output pin to low if matched.
+                                         - TIM_HIGH    : Force external output pin to high if matched.
+                                         - TIM_TOGGLE  : Toggle external output pin if matched. */
+    uint32_t matchValue;                 /**< Match value to compare with timer counter. */
 } TIM_MATCHCFG_Type;
 
 /**
@@ -252,6 +420,16 @@ typedef struct {
     FunctionalState         intOnCapture;   /**< Should be:
                                             - ENABLE  : Enable interrupt on capture event.
                                             - DISABLE : Disable interrupt on capture event. */
+    TIM_CAPTURE_CHANNEL captureChannel; /**< TIM_CAPTURE_x [0...1]. */
+    FunctionalState risingEdge;         /**< Should be:
+                                        - ENABLE  : Enable capture on rising edge.
+                                        - DISABLE : Disable capture on rising edge. */
+    FunctionalState fallingEdge;        /**< Should be:
+                                        - ENABLE  : Enable capture on falling edge.
+                                        - DISABLE : Disable capture on falling edge. */
+    FunctionalState intOnCapture;       /**< Should be:
+                                        - ENABLE  : Enable interrupt on capture event.
+                                        - DISABLE : Disable interrupt on capture event. */
 } TIM_CAPTURECFG_Type;
 
 /**
@@ -264,6 +442,11 @@ typedef struct {
  * @{
  */
 /* Init/DeInit TIM functions -----------*/
+/* ---------------------------- Public Functions ---------------------------- */
+/** @defgroup TIM_Public_Functions TIM Public Functions
+ * @{
+ */
+
 /**
  * @brief      Initializes the specified Timer/Counter peripheral.
  *
@@ -281,6 +464,15 @@ typedef struct {
  * @param[in]  TIM_ConfigStruct  Pointer to configuration structure:
  *                               - TIM_TIMERCFG_Type for timer mode
  *                               - TIM_COUNTERCFG_Type for counter mode
+ * @param[in]  TIMx         Pointer to the timer peripheral (LPC_TIMx [0...3]).
+ * @param[in]  mode         Timer/counter mode selection:
+ *                          - TIM_TIMER_MODE
+ *                          - TIM_COUNTER_RISING_MODE
+ *                          - TIM_COUNTER_FALLING_MODE
+ *                          - TIM_COUNTER_ANY_MODE
+ * @param[in]  timCtrCfg    Pointer to configuration structure:
+ *                          - TIM_TIMERCFG_Type for timer mode
+ *                          - TIM_COUNTERCFG_Type for counter mode
  *
  * @note:
  * - The function enables the timer's power and sets the peripheral clock divider.
@@ -289,6 +481,7 @@ typedef struct {
  * - The timer is left in a disabled state after initialization.
  */
 void TIM_Init(LPC_TIM_TypeDef *TIMx, TIM_MODE_OPT timerCounterMode, void *TIM_ConfigStruct);
+void TIM_Init(LPC_TIM_TypeDef* TIMx, TIM_MODE mode, void* timCtrCfg);
 
 /**
  * @brief      De-initializes the specified Timer/Counter peripheral.
@@ -369,6 +562,59 @@ FlagStatus TIM_GetIntStatus(LPC_TIM_TypeDef *TIMx, TIM_INT_TYPE intFlag);
  *             the structure has valid default values.
  */
 void TIM_ConfigStructInit(TIM_MODE_OPT timerCounterMode, void *TIM_ConfigStruct);
+void TIM_DeInit(LPC_TIM_TypeDef* TIMx);
+
+/**
+ * @brief      Initializes a timer or counter configuration structure with default values.
+ *
+ * This function sets default values for the provided configuration structure,
+ * depending on the selected mode. For timer mode, it sets the prescale option
+ * to microseconds and the prescale value to 0. For counter mode, it sets the
+ * count input select to CAPn.0. Reserved fields are not initialized.
+ *
+ * @param[in]  mode         Timer/counter mode selection:
+ *                          - TIM_TIMER_MODE
+ *                          - TIM_COUNTER_RISING_MODE
+ *                          - TIM_COUNTER_FALLING_MODE
+ *                          - TIM_COUNTER_ANY_MODE
+ * @param[out] timCtrCfg    Pointer to configuration structure to initialize:
+ *                          - TIM_TIMERCFG_Type for timer mode
+ *                          - TIM_COUNTERCFG_Type for counter mode
+ *
+ * @note       Call this function before configuring a timer or counter to ensure
+ *             the structure has valid default values.
+ */
+void TIM_ConfigStructInit(TIM_MODE mode, void* timCtrCfg);
+
+/**
+ * @brief      Enables or disables the specified Timer/Counter peripheral.
+ *
+ * This function sets or clears the enable bit in the TCR register of the given timer,
+ * effectively starting or stopping the timer/counter.
+ *
+ * @param[in]  TIMx      Pointer to the timer peripheral (LPC_TIMx [0...3]).
+ * @param[in]  newState  Functional state:
+ *                       - ENABLE  : Start the timer/counter.
+ *                       - DISABLE : Stop the timer/counter.
+ *
+ * @note:
+ * - Use this function to control timer operation after configuration.
+ * - The timer must be initialized before calling this function.
+ */
+void TIM_Cmd(LPC_TIM_TypeDef* TIMx, FunctionalState newState);
+
+/**
+ * @brief      Resets the Timer/Counter peripheral.
+ *
+ * This function synchronously resets the Timer Counter (TC) and Prescale Counter (PC)
+ * of the specified timer by setting and then clearing the reset bit in the TCR register.
+ *
+ * @param[in]  TIMx  Pointer to the timer peripheral (LPC_TIMx [0...3]).
+ *
+ * @note:
+ * - Use this function to reset the timer counters to zero.
+ */
+void TIM_ResetCounter(LPC_TIM_TypeDef* TIMx);
 
 /**
  * @brief      Configures the match channel for the specified Timer/Counter peripheral.
@@ -379,6 +625,8 @@ void TIM_ConfigStructInit(TIM_MODE_OPT timerCounterMode, void *TIM_ConfigStruct)
  *
  * @param[in]  TIMx                  Pointer to the timer peripheral (LPC_TIMx [0...3]).
  * @param[in]  TIM_MatchConfigStruct Pointer to a TIM_MATCHCFG_Type structure.
+ * @param[in]  TIMx         Pointer to the timer peripheral (LPC_TIMx [0...3]).
+ * @param[in]  matchCfg     Pointer to a TIM_MATCHCFG_Type structure.
  *
  * @note:
  * - The interrupt flag for the selected channel is cleared before configuration.
@@ -386,6 +634,7 @@ void TIM_ConfigStructInit(TIM_MODE_OPT timerCounterMode, void *TIM_ConfigStruct)
  * - Call this function after initializing the timer to set up match behavior.
  */
 void TIM_ConfigMatch(LPC_TIM_TypeDef *TIMx, TIM_MATCHCFG_Type *TIM_MatchConfigStruct);
+void TIM_ConfigMatch(LPC_TIM_TypeDef* TIMx, const TIM_MATCHCFG_Type* matchCfg);
 
 /**
  * @brief      Updates the match value for the specified Timer/Counter channel.
@@ -396,6 +645,7 @@ void TIM_ConfigMatch(LPC_TIM_TypeDef *TIMx, TIM_MATCHCFG_Type *TIM_MatchConfigSt
  *
  * @param[in]  TIMx         Pointer to the timer peripheral (LPC_TIMx [0...3]).
  * @param[in]  matchChannel Match channel to update (TIM_MATCH_CHANNEL_x [0..3]).
+ * @param[in]  channel      Match channel to update (TIM_MATCH_x [0..3]).
  * @param[in]  matchValue   New value to set in the match register.
  *
  * @note:
@@ -403,6 +653,7 @@ void TIM_ConfigMatch(LPC_TIM_TypeDef *TIMx, TIM_MATCHCFG_Type *TIM_MatchConfigSt
  * - Call this function to change the match value during runtime.
  */
 void TIM_UpdateMatchValue(LPC_TIM_TypeDef *TIMx, TIM_MATCH_CHANNEL_OPT matchChannel, uint32_t matchValue);
+void TIM_UpdateMatchValue(LPC_TIM_TypeDef* TIMx, TIM_MATCH_CHANNEL channel, uint32_t matchValue);
 
 /**
  * @brief      Sets the external match output type for a specific match channel.
@@ -418,12 +669,20 @@ void TIM_UpdateMatchValue(LPC_TIM_TypeDef *TIMx, TIM_MATCH_CHANNEL_OPT matchChan
  *                                  - TIM_LOW
  *                                  - TIM_HIGH
  *                                  - TIM_TOGGLE
+ * @param[in]  TIMx     Pointer to the timer peripheral (LPC_TIMx [0...3]).
+ * @param[in]  channel  Match channel to configure (TIM_MATCH_x [0..3]).
+ * @param[in]  type     External match output type:
+ *                      - TIM_NOTHING
+ *                      - TIM_LOW
+ *                      - TIM_HIGH
+ *                      - TIM_TOGGLE
  *
  * @note:
  * - Only the specified channel is affected.
  * - Call this function after initializing the timer and before starting it.
  */
 void TIM_SetMatchExt(LPC_TIM_TypeDef *TIMx, TIM_MATCH_CHANNEL_OPT matchChannel, TIM_EXTMATCH_OPT extMatchOutputType);
+void TIM_SetMatchExt(LPC_TIM_TypeDef* TIMx, TIM_MATCH_CHANNEL channel, TIM_EXTMATCH_OPT type);
 
 /**
  * @brief      Configures the capture channel for the specified Timer/Counter peripheral.
@@ -434,6 +693,8 @@ void TIM_SetMatchExt(LPC_TIM_TypeDef *TIMx, TIM_MATCH_CHANNEL_OPT matchChannel, 
  *
  * @param[in]  TIMx                    Pointer to the timer peripheral (LPC_TIMx [0...3]).
  * @param[in]  TIM_CaptureConfigStruct Pointer to a TIM_CAPTURECFG_Type.
+ * @param[in]  TIMx     Pointer to the timer peripheral (LPC_TIMx [0...3]).
+ * @param[in]  capCfg   Pointer to a TIM_CAPTURECFG_Type.
  *
  * @note:
  * - Only the specified channel is affected.
@@ -457,6 +718,7 @@ void TIM_ConfigCapture(LPC_TIM_TypeDef *TIMx, TIM_CAPTURECFG_Type *TIM_CaptureCo
  * - The timer must be initialized before calling this function.
  */
 void TIM_Cmd(LPC_TIM_TypeDef *TIMx, FunctionalState newState);
+void TIM_ConfigCapture(LPC_TIM_TypeDef* TIMx, const TIM_CAPTURECFG_Type* capCfg);
 
 /**
  * @brief      Reads the value of the capture register for the specified channel.
@@ -468,6 +730,10 @@ void TIM_Cmd(LPC_TIM_TypeDef *TIMx, FunctionalState newState);
  * @param[in]  captureChannel Capture channel to read:
  *                            - TIM_CAPTURE_CHANNEL_0 : CAPn.0 input pin for TIMERn
  *                            - TIM_CAPTURE_CHANNEL_1 : CAPn.1 input pin for TIMERn
+ * @param[in]  TIMx     Pointer to the timer/counter peripheral (LPC_TIMx [0...3]).
+ * @param[in]  channel  Capture channel to read:
+ *                      - TIM_CAPTURE_0 : CAPn.0 input pin for TIMERn
+ *                      - TIM_CAPTURE_1 : CAPn.1 input pin for TIMERn
  *
  * @return     Value of the selected capture register.
  *
@@ -489,6 +755,61 @@ uint32_t TIM_GetCaptureValue(LPC_TIM_TypeDef *TIMx, TIM_CAPTURE_CHANNEL_OPT capt
  * - Use this function to reset the timer counters to zero.
  */
 void TIM_ResetCounter(LPC_TIM_TypeDef *TIMx);
+uint32_t TIM_GetCaptureValue(LPC_TIM_TypeDef* TIMx, TIM_CAPTURE_CHANNEL channel);
+
+/**
+ * @brief      Clears the specified Timer/Counter interrupt pending flag.
+ *
+ * This function clears the interrupt pending flag for the given match or capture
+ * channel in the timer's interrupt register (IR). It can be used for both match
+ * and capture interrupts.
+ *
+ * @param[in]  TIMx     Pointer to the timer peripheral (LPC_TIMx [0...3]).
+ * @param[in]  intFlag  Interrupt type to clear:
+ *                      - TIM_MR0_INT: Match channel 0
+ *                      - TIM_MR1_INT: Match channel 1
+ *                      - TIM_MR2_INT: Match channel 2
+ *                      - TIM_MR3_INT: Match channel 3
+ *                      - TIM_CR0_INT: Capture channel 0
+ *                      - TIM_CR1_INT: Capture channel 1
+ */
+void TIM_ClearIntPending(LPC_TIM_TypeDef* TIMx, TIM_INT intFlag);
+
+/**
+ * @brief      Gets the interrupt status for the specified Timer/Counter channel.
+ *
+ * This function checks if the interrupt flag for the given match or capture channel
+ * is set in the timer's interrupt register (IR). It can be used for both match and
+ * capture interrupts.
+ *
+ * @param[in]  TIMx     Pointer to the timer peripheral (LPC_TIMx [0...3]).
+ * @param[in]  intFlag  Interrupt type to check:
+ *                      - TIM_MR0_INT: Match channel 0
+ *                      - TIM_MR1_INT: Match channel 1
+ *                      - TIM_MR2_INT: Match channel 2
+ *                      - TIM_MR3_INT: Match channel 3
+ *                      - TIM_CR0_INT: Capture channel 0
+ *                      - TIM_CR1_INT: Capture channel 1
+ *
+ * @return     FlagStatus
+ *             - SET   : Interrupt is pending
+ *             - RESET : No interrupt pending
+ */
+FlagStatus TIM_GetIntStatus(LPC_TIM_TypeDef* TIMx, TIM_INT intFlag);
+
+/**
+ * @brief      Configures the pin function for a specific timer/counter channel.
+ *
+ * This function sets the appropriate pin function for the selected timer/counter
+ * capture or match channel, enabling its use for timer operations (capture or match).
+ *
+ * @param[in]  option  Timer pin selection option (see TIM_PIN_OPTION).
+ *
+ * @note:
+ * - All resistor modes for timer pins are set to tristate (floating) by default.
+ * - Call this function before using the timer channel for capture or external match operations.
+ */
+void TIM_PinConfig(TIM_PIN_OPTION option);
 
 /**
  * @}
@@ -504,3 +825,10 @@ void TIM_ResetCounter(LPC_TIM_TypeDef *TIMx);
  */
 
 /* --------------------------------- End Of File ------------------------------ */
+#endif /* LPC17XX_TIMER_H_ */
+
+/**
+ * @}
+ */
+
+/* ------------------------------ End Of File ------------------------------- */
