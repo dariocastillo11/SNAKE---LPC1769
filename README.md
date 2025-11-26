@@ -1,7 +1,28 @@
 # 🎮 DinoChrome Arcade - Consola Emulada en LPC1769
 
 # prototipo:
-https://youtu.be/1SkBKUzI0do
+🔗 [Ver prototipo en Google Drive](https://drive.google.com/file/d/16qOqM-h5jt_PgI9QWdnAs-lrSv28flxA/view?usp=sharing)
+---
+
+### ▶️ Ver demo en YouTube
+<p align="center">
+  <a href="https://youtu.be/1SkBKUzI0do">
+    <img src="https://img.youtube.com/vi/1SkBKUzI0do/0.jpg" width="250" />
+  </a>
+  <a href="https://youtu.be/fvH5eQaHKKo?si=YbP_Yb0W7B7Uc3JL">
+    <img src="https://img.youtube.com/vi/vmjX52HBIpY/0.jpg" width="250" />
+  </a>
+  <a href="https://youtube.com/shorts/Tz25_OoKHCY?feature=share">
+    <img src="https://img.youtube.com/vi/fvH5eQaHKKo/0.jpg" width="250" />
+  </a>
+</p>
+---
+
+### ▶️ Imagen version terminada
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/474bd065-94ee-44f2-87e9-4ae8bf61a03d" width="200"/>
+  <img src="https://github.com/user-attachments/assets/b58cf506-cb85-466f-9cfc-1a206587a7a8" width="200"/>
+</p>
 
 [![Estado](https://img.shields.io/badge/estado-Activo-brightgreen)]()
 [![Lenguaje](https://img.shields.io/badge/lenguaje-C-blue)]()
